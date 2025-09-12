@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import 'package:lifeprint/authservice.dart';
+
 class RegisterPage extends StatefulWidget {
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -268,7 +270,14 @@ class _RegisterPageState extends State<RegisterPage>
                             ),
                             onPressed: _isLoading || !_agreeToTerms
                                 ? null
-                                : _handleRegister,
+                                : Registerss(
+                                    ConfirmPassword:
+                                        _confirmPasswordController.text,
+                                    Password: _passwordController.text,
+                                    EmailAddress: _emailController.text,
+                                    FullName: _fullNameController.text,
+                                    context: context,
+                                  ),
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
@@ -564,42 +573,6 @@ class _RegisterPageState extends State<RegisterPage>
       if (mounted) {
         _showSnackBar("Error picking image: $e");
       }
-    }
-  }
-
-  void _handleRegister() async {
-    if (_fullNameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      _showSnackBar("Please fill in all fields");
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      _showSnackBar("Passwords do not match");
-      return;
-    }
-
-    if (_passwordController.text.length < 6) {
-      _showSnackBar("Password must be at least 6 characters");
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      _showSnackBar("Account created successfully!");
-      Navigator.pop(context);
     }
   }
 

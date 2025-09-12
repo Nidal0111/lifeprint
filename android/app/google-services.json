@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "24623295439",
+    "project_id": "lifeprint-36102",
+    "storage_bucket": "lifeprint-36102.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:24623295439:android:38f55759efc58cf08080ba",
+        "android_client_info": {
+          "package_name": "com.example.lifeprint"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoTKBEAwdRVccWIopM60ytsHBT_c8T80s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

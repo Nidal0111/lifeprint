@@ -3,20 +3,7 @@ import 'package:animated_background/animated_background.dart';
 import 'package:lifeprint/forgot.dart';
 import 'package:lifeprint/reg.dart';
 
-void main() {}
 
-class Lifeprint extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.deepPurple, fontFamily: 'Roboto'),
-      home: const LoginPage(),
-    );
-  }
-}
-
-// -------------------- LOGIN PAGE -------------------- //
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
