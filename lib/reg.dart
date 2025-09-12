@@ -268,16 +268,16 @@ class _RegisterPageState extends State<RegisterPage>
                               ),
                               elevation: 5,
                             ),
-                            onPressed: _isLoading || !_agreeToTerms
-                                ? null
-                                : Registerss(
-                                    ConfirmPassword:
-                                        _confirmPasswordController.text,
-                                    Password: _passwordController.text,
-                                    EmailAddress: _emailController.text,
-                                    FullName: _fullNameController.text,
-                                    context: context,
-                                  ),
+                            onPressed: () {
+                              Registerss(
+                                ConfirmPassword:
+                                    _confirmPasswordController.text,
+                                Password: _passwordController.text,
+                                EmailAddress: _emailController.text,
+                                FullName: _fullNameController.text,
+                                context: context,
+                              );
+                            },
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
