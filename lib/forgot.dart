@@ -347,15 +347,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-      _isEmailSent = true;
-    });
-
-    _showMessage("Reset link sent to $email");
+    try {
+      await forgotten(Email: email, context: context);
+      setState(() {
+        _isEmailSent = true;
+      });
+    } catch (e) {
+      _showMessage("Error: ${e.toString()}");
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _handleResendEmail() async {
@@ -363,13 +366,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      _isLoading = false;
-    });
-forgotten(Email: _emailController.text, context: context);
+    try {
+      await forgotten(Email: _emailController.text.trim(), context: context);
+      _showMessage("Reset link resent to ${_emailController.text.trim()}");
+    } catch (e) {
+      _showMessage("Error: ${e.toString()}");
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   bool _isValidEmail(String email) {
