@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:animated_background/animated_background.dart';
+import 'package:lifeprint/authservice.dart';
 import 'package:lifeprint/forgot.dart';
 import 'package:lifeprint/reg.dart';
-
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -149,23 +149,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               ),
                               elevation: 5,
                             ),
-                            onPressed: _isLoading ? null : _handleLogin,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    "Sign In",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                            onPressed: () {
+                              loginPage(
+                                EmailAddress: _emailController.text,
+                                Password: _passwordController.text,
+                                context: context,
+                              );
+                            },
+                            child: Text(
+                              "Sign In",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 30),
@@ -347,34 +344,4 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  void _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showSnackBar("Please fill in all fields");
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    _showSnackBar("Login successful!");
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.deepPurple,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
 }

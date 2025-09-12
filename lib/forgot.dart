@@ -1,5 +1,6 @@
 import 'package:animated_background/animated_background.dart';
 import 'package:flutter/material.dart';
+import 'package:lifeprint/authservice.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   @override
@@ -368,8 +369,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     setState(() {
       _isLoading = false;
     });
-
-    _showMessage("Reset link resent successfully!");
+forgotten(Email: _emailController.text, context: context);
   }
 
   bool _isValidEmail(String email) {
