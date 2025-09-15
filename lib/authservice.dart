@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lifeprint/screens/modern_home_screen.dart';
 
 Future<void> Registerss({
   required String FullName,
@@ -48,11 +49,29 @@ Future<void> Registerss({
         ),
       );
     }
-  } catch (e) {
+  } on FirebaseAuthException catch (e) {
+    String errorMessage = 'Registration failed';
+    switch (e.code) {
+      case 'weak-password':
+        errorMessage = 'The password provided is too weak.';
+        break;
+      case 'email-already-in-use':
+        errorMessage = 'The account already exists for that email.';
+        break;
+      case 'invalid-email':
+        errorMessage = 'The email address is not valid.';
+        break;
+      case 'operation-not-allowed':
+        errorMessage = 'Email/password accounts are not enabled.';
+        break;
+      default:
+        errorMessage = 'Registration failed: ${e.message}';
+    }
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Registration failed: ${e.toString()}"),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -61,7 +80,21 @@ Future<void> Registerss({
         ),
       );
     }
-    rethrow; // Re-throw to be caught by the calling function
+    rethrow;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Unexpected error: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow;
   }
 }
 
@@ -71,10 +104,8 @@ Future<void> loginPage({
   required BuildContext context,
 }) async {
   try {
-    await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: EmailAddress,
-      password: Password,
-    );
+    UserCredential userCredential = await FirebaseAuth.instance
+        .signInWithEmailAndPassword(email: EmailAddress, password: Password);
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,12 +118,39 @@ Future<void> loginPage({
           ),
         ),
       );
+
+      // Force navigation to home screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const ModernHomeScreen()),
+        (route) => false,
+      );
     }
-  } catch (e) {
+  } on FirebaseAuthException catch (e) {
+    String errorMessage = 'Login failed';
+    switch (e.code) {
+      case 'user-not-found':
+        errorMessage = 'No user found for that email.';
+        break;
+      case 'wrong-password':
+        errorMessage = 'Wrong password provided.';
+        break;
+      case 'invalid-email':
+        errorMessage = 'The email address is not valid.';
+        break;
+      case 'user-disabled':
+        errorMessage = 'This user account has been disabled.';
+        break;
+      case 'too-many-requests':
+        errorMessage = 'Too many attempts. Please try again later.';
+        break;
+      default:
+        errorMessage = 'Login failed: ${e.message}';
+    }
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Login failed: ${e.toString()}"),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -101,7 +159,21 @@ Future<void> loginPage({
         ),
       );
     }
-    rethrow; // Re-throw to be caught by the calling function
+    rethrow;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Unexpected error: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow;
   }
 }
 
@@ -124,11 +196,26 @@ Future<void> forgotten({
         ),
       );
     }
-  } catch (e) {
+  } on FirebaseAuthException catch (e) {
+    String errorMessage = 'Failed to send reset email';
+    switch (e.code) {
+      case 'user-not-found':
+        errorMessage = 'No user found for that email.';
+        break;
+      case 'invalid-email':
+        errorMessage = 'The email address is not valid.';
+        break;
+      case 'too-many-requests':
+        errorMessage = 'Too many attempts. Please try again later.';
+        break;
+      default:
+        errorMessage = 'Failed to send reset email: ${e.message}';
+    }
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Failed to send reset email: ${e.toString()}"),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -137,6 +224,20 @@ Future<void> forgotten({
         ),
       );
     }
-    rethrow; // Re-throw to be caught by the calling function
+    rethrow;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Unexpected error: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow;
   }
 }

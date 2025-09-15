@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:lifeprint/login.dart';
-import 'package:lifeprint/screens/home_screen.dart';
+import 'package:lifeprint/screens/modern_login_screen.dart';
+import 'package:lifeprint/screens/modern_home_screen.dart';
+import 'package:lifeprint/screens/onboarding_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
+
   runApp(const MyApp());
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 class MyApp extends StatelessWidget {
@@ -23,27 +34,32 @@ class MyApp extends StatelessWidget {
           seedColor: Colors.deepPurple,
           brightness: Brightness.light,
         ),
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
+        textTheme: GoogleFonts.poppinsTextTheme(
+          const TextTheme(
+            displayLarge: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+            displayMedium: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.25,
+            ),
+            displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+            headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            headlineMedium: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+            headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+            bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+            bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
           ),
-          displayMedium: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.25,
-          ),
-          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-          headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-          bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
         ),
         appBarTheme: AppBarTheme(
           centerTitle: true,
@@ -133,18 +149,60 @@ class MyApp extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Initializing...'),
+                  ],
+                ),
+              ),
             );
           }
-          if (snapshot.hasData) {
-            return const HomeScreen();
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error, size: 64, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Firebase Error',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please check your internet connection and try again.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        // Restart the app
+                        main();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
-          return const LoginPage();
+
+          if (snapshot.hasData) {
+            return const ModernHomeScreen();
+          }
+          return const OnboardingScreen();
         },
       ),
       routes: {
-        '/login': (context) => const LoginPage(),
-        '/home': (context) => const HomeScreen(),
+        '/login': (context) => const ModernLoginScreen(),
+        '/home': (context) => const ModernHomeScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
 import 'package:lifeprint/models/memory_model.dart';
 
@@ -14,7 +15,8 @@ class AddMemoryScreen extends StatefulWidget {
   State<AddMemoryScreen> createState() => _AddMemoryScreenState();
 }
 
-class _AddMemoryScreenState extends State<AddMemoryScreen> {
+class _AddMemoryScreenState extends State<AddMemoryScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _releaseDateController = TextEditingController();
@@ -25,8 +27,40 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
   bool _isLoading = false;
   bool _isUploading = false;
 
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
+
+    _fadeController.forward();
+    _slideController.forward();
+  }
+
   @override
   void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
     _titleController.dispose();
     _releaseDateController.dispose();
     super.dispose();
@@ -35,37 +69,58 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Memory'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Media Selection Section
-              _buildMediaSelectionSection(),
-              const SizedBox(height: 24),
+              // Custom App Bar
+              _buildCustomAppBar(context),
+              // Form Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20.0),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Media Selection Section
+                            _buildMediaSelectionSection(),
+                            const SizedBox(height: 24),
 
-              // Memory Type Selection
-              _buildTypeSelectionSection(),
-              const SizedBox(height: 24),
+                            // Memory Type Selection
+                            _buildTypeSelectionSection(),
+                            const SizedBox(height: 24),
 
-              // Title Input
-              _buildTitleInput(),
-              const SizedBox(height: 24),
+                            // Title Input
+                            _buildTitleInput(),
+                            const SizedBox(height: 24),
 
-              // Release Date Input
-              _buildReleaseDateInput(),
-              const SizedBox(height: 32),
+                            // Release Date Input
+                            _buildReleaseDateInput(),
+                            const SizedBox(height: 32),
 
-              // Upload Button
-              _buildUploadButton(),
+                            // Upload Button
+                            _buildUploadButton(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -73,30 +128,90 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     );
   }
 
-  Widget _buildMediaSelectionSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.attach_file, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Select Media',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-              ],
+  Widget _buildCustomAppBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        children: [
+          // Back Button
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
             ),
-            const SizedBox(height: 16),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => Navigator.of(context).pop(),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Title
+          Text(
+            'Add Memory',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          // Placeholder for symmetry
+          const SizedBox(width: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaSelectionSection() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.attach_file, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Select Media',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
 
             // Selected File Preview
             if (_selectedFile != null) ...[
@@ -155,82 +270,169 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isUploading ? null : _selectImage,
-                    icon: const Icon(Icons.photo_camera),
-                    label: const Text('Photo'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _isUploading ? null : _selectImage,
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.photo_camera, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Photo',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isUploading ? null : _selectVideo,
-                    icon: const Icon(Icons.videocam),
-                    label: const Text('Video'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _isUploading ? null : _selectVideo,
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.videocam, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Video',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isUploading ? null : _selectAudio,
-                icon: const Icon(Icons.audiotrack),
-                label: const Text('Audio File'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+            Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _isUploading ? null : _selectAudio,
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.audiotrack, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Audio File',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
         ),
-      ),
+    
     );
   }
 
   Widget _buildTypeSelectionSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.category, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Memory Type',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.category, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Memory Type',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: MemoryType.values.map((type) {
                 return ChoiceChip(
-                  label: Text(type.displayName),
+                  label: Text(
+                    type.displayName,
+                    style: GoogleFonts.poppins(
+                      color: _selectedType == type ? Colors.black : Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   selected: _selectedType == type,
                   onSelected: (selected) {
                     if (selected) {
@@ -239,162 +441,235 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
                       });
                     }
                   },
-                  selectedColor: Colors.deepPurple.withOpacity(0.2),
-                  checkmarkColor: Colors.deepPurple,
+                  selectedColor: Colors.white,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  checkmarkColor: Colors.black,
+                  side: BorderSide(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
                 );
               }).toList(),
             ),
           ],
         ),
-      ),
+    
     );
   }
 
   Widget _buildTitleInput() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.title, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Memory Title',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                hintText: 'Enter a title for your memory',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Colors.deepPurple,
-                    width: 2,
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.title, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Memory Title',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a title';
-                }
-                return null;
-              },
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _titleController,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Enter a title for your memory',
+              hintStyle: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.6),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.white.withOpacity(0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
             ),
-          ],
-        ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter a title';
+              }
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildReleaseDateInput() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.calendar_today, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Release Date (Optional)',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _releaseDateController,
-              decoration: InputDecoration(
-                hintText: 'Select when this memory should be released',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Colors.deepPurple,
-                    width: 2,
-                  ),
-                ),
-                suffixIcon: IconButton(
-                  onPressed: _selectReleaseDate,
-                  icon: const Icon(Icons.calendar_today),
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Release Date (Optional)',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
-              readOnly: true,
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _releaseDateController,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Select when this memory should be released',
+              hintStyle: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.6),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.white.withOpacity(0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
+              suffixIcon: IconButton(
+                onPressed: _selectReleaseDate,
+                icon: const Icon(Icons.calendar_today, color: Colors.white),
+              ),
             ),
-          ],
-        ),
+            readOnly: true,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildUploadButton() {
-    return SizedBox(
+    return Container(
       height: 56,
-      child: ElevatedButton(
-        onPressed: (_isLoading || _isUploading || _selectedFile == null)
-            ? null
-            : _uploadMemory,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
-          elevation: 4,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: (_isLoading || _isUploading || _selectedFile == null)
+              ? null
+              : _uploadMemory,
+          child: Center(
+            child: _isLoading || _isUploading
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _isUploading ? 'Uploading...' : 'Saving...',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.cloud_upload, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Upload Memory',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
-        child: _isLoading || _isUploading
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(_isUploading ? 'Uploading...' : 'Saving...'),
-                ],
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.cloud_upload),
-                  SizedBox(width: 8),
-                  Text(
-                    'Upload Memory',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
       ),
     );
   }

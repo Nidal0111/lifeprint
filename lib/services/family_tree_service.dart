@@ -19,6 +19,10 @@ class FamilyTreeService {
       throw Exception("User not logged in.");
     }
 
+    if (linkedUserId == currentUserId) {
+      throw Exception("You cannot add yourself as a family member.");
+    }
+
     try {
       final relationshipId = _firestore.collection('relationships').doc().id;
 
@@ -41,6 +45,9 @@ class FamilyTreeService {
         'relationships': FieldValue.arrayUnion([relationshipId]),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Ensure reciprocal record can be inferred if needed later
+      // (Not creating inverse automatically to keep logic explicit)
 
       print('Family member added successfully with ID: $relationshipId');
       return relationshipId;
@@ -274,7 +281,11 @@ class FamilyTreeService {
         }
       }
 
-      return results;
+      // Exclude current user from search results
+      final filtered = results
+          .where((u) => u['id'] != currentUserId)
+          .toList(growable: false);
+      return filtered;
     } catch (e) {
       print('Error searching users: $e');
       rethrow;

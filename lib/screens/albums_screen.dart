@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lifeprint/models/memory_model.dart';
+import 'package:lifeprint/screens/family_tree_screen.dart';
 import 'package:lifeprint/screens/memory_detail_screen.dart';
+import 'package:lifeprint/screens/modern_home_screen.dart';
+import 'package:lifeprint/screens/notes_calendar_screen.dart';
 
 class AlbumsScreen extends StatefulWidget {
   const AlbumsScreen({super.key});
@@ -13,6 +17,7 @@ class AlbumsScreen extends StatefulWidget {
 
 class _AlbumsScreenState extends State<AlbumsScreen> {
   String _selectedEmotion = 'All';
+  final int _currentIndex = 1;
 
   // Predefined emotion categories
   final List<String> _emotionCategories = [
@@ -41,28 +46,53 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Memory Albums',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onPrimary,
-            fontWeight: FontWeight.w600,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 1,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Memory Albums',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+              // Content
+              _buildEmotionChips(),
+              Expanded(child: _buildMemoriesList()),
+            ],
+          ),
+        ),
       ),
-      body: Column(
-        children: [
-          // Emotion Filter Chips
-          _buildEmotionChips(),
-
-          // Memories List
-          Expanded(child: _buildMemoriesList()),
-        ],
-      ),
+      bottomNavigationBar: _buildBottomNavigationBar(context, _currentIndex),
     );
   }
 
@@ -80,31 +110,119 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
-              label: Text(emotion),
+              label: Text(
+                emotion,
+                style: GoogleFonts.poppins(
+                  color: isSelected ? const Color(0xFF667eea) : Colors.white,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
               selected: isSelected,
               onSelected: (selected) {
                 setState(() {
                   _selectedEmotion = emotion;
                 });
               },
-              selectedColor: Theme.of(context).colorScheme.primaryContainer,
-              checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+              backgroundColor: Colors.white.withOpacity(0.1),
+              selectedColor: Colors.white,
+              checkmarkColor: const Color(0xFF667eea),
               side: BorderSide(
                 color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outline,
-                width: isSelected ? 2 : 1,
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.3),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+          stops: [0.0, 0.5, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          if (index == currentIndex) return;
+          Widget target;
+          switch (index) {
+            case 0:
+              target = const ModernHomeScreen();
+              break;
+            case 1:
+              target = const AlbumsScreen();
+              break;
+            case 2:
+              target = const FamilyTreeScreen();
+              break;
+            case 3:
+              target = const NotesCalendarScreen();
+              break;
+            default:
+              target = const ModernHomeScreen();
+          }
+
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => target,
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+              transitionDuration: const Duration(milliseconds: 250),
+            ),
+          );
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withOpacity(0.6),
+        selectedLabelStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.photo_library_outlined),
+            activeIcon: Icon(Icons.photo_library),
+            label: 'Memories',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.family_restroom_outlined),
+            activeIcon: Icon(Icons.family_restroom),
+            label: 'Family',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_note_outlined),
+            activeIcon: Icon(Icons.event_note),
+            label: 'Notes',
+          ),
+        ],
       ),
     );
   }

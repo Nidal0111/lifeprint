@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lifeprint/models/family_member_model.dart';
+import 'package:lifeprint/screens/albums_screen.dart';
+import 'package:lifeprint/screens/notes_calendar_screen.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
-import 'package:lifeprint/screens/home_screen.dart';
+import 'package:lifeprint/screens/modern_home_screen.dart';
 import 'package:lifeprint/screens/add_family_member_screen.dart';
 import 'package:graphview/graphview.dart';
 
@@ -15,6 +17,7 @@ class FamilyTreeScreen extends StatefulWidget {
 
 class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   final FamilyTreeService _familyTreeService = FamilyTreeService();
+  final int _currentIndex = 2;
 
   bool _isLoading = false;
   Map<String, FamilyMember> _familyMembers = {};
@@ -96,7 +99,87 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   void _openUserMemories(String userId) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => HomeScreen(selectedUserId: userId),
+        builder: (context) => ModernHomeScreen(selectedUserId: userId),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+          stops: [0.0, 0.5, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          if (index == currentIndex) return;
+          Widget target;
+          switch (index) {
+            case 0:
+              target = const ModernHomeScreen();
+              break;
+            case 1:
+              target = const AlbumsScreen();
+              break;
+            case 2:
+              target = const FamilyTreeScreen();
+              break;
+            case 3:
+              target = const NotesCalendarScreen();
+              break;
+            default:
+              target = const ModernHomeScreen();
+          }
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => target,
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+              transitionDuration: const Duration(milliseconds: 250),
+            ),
+          );
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withOpacity(0.6),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.photo_library_outlined),
+            activeIcon: Icon(Icons.photo_library),
+            label: 'Memories',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.family_restroom_outlined),
+            activeIcon: Icon(Icons.family_restroom),
+            label: 'Family',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_note_outlined),
+            activeIcon: Icon(Icons.event_note),
+            label: 'Notes',
+          ),
+        ],
       ),
     );
   }
@@ -159,60 +242,55 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           SugiyamaConfiguration()
             ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM,
         ),
-        builder:
-            (context, node) {
-                  final member = _familyMembers[node.key.toString()];
-                  if (member == null) return const SizedBox.shrink();
+        builder: (node) {
+          final String keyStr =
+              node.key?.value?.toString() ?? node.key?.toString() ?? '';
+          final member = _familyMembers[keyStr];
+          if (member == null) return const SizedBox.shrink();
 
-                  return GestureDetector(
-                    onTap: () => _openUserMemories(member.linkedUserId),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        border: Border.all(color: Colors.blue.shade200),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundImage: member.profileImageUrl != null
-                                ? NetworkImage(member.profileImageUrl!)
-                                : null,
-                            child: member.profileImageUrl == null
-                                ? Text(
-                                    member.name[0].toUpperCase(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            member.name,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            member.relation,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+          return GestureDetector(
+            onTap: () => _openUserMemories(member.linkedUserId),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                border: Border.all(color: Colors.blue.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: member.profileImageUrl != null
+                        ? NetworkImage(member.profileImageUrl!)
+                        : null,
+                    child: member.profileImageUrl == null
+                        ? Text(
+                            member.name[0].toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    member.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                  );
-                }
-                as NodeWidgetBuilder,
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(
+                    member.relation,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -220,45 +298,77 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Family Tree',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onPrimary,
-            fontWeight: FontWeight.w600,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadFamilyTree,
-            tooltip: 'Refresh Family Tree',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildFamilyTreeInfo(),
-                  const SizedBox(height: 16),
-                  Container(
-                    height: 600,
-                    margin: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
-                    child: _buildFamilyTree(),
-                  ),
-                ],
+                    Expanded(
+                      child: Text(
+                        'Family Tree',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: _loadFamilyTree,
+                      tooltip: 'Refresh Family Tree',
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            _buildFamilyTreeInfo(),
+                            const SizedBox(height: 16),
+                            Container(
+                              height: 600,
+                              margin: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.06),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.12),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: _buildFamilyTree(),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.of(context)
@@ -280,15 +390,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                       },
                 ),
               )
-              .then((_) {
-                // Reload family tree when returning from add member screen
-                _loadFamilyTree();
-              });
+              .then((_) => _loadFamilyTree());
         },
         icon: const Icon(Icons.person_add),
         label: const Text('Add Member'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
       ),
     );
   }

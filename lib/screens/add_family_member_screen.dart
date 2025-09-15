@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lifeprint/models/family_member_model.dart';
@@ -11,12 +12,13 @@ class AddFamilyMemberScreen extends StatefulWidget {
   State<AddFamilyMemberScreen> createState() => _AddFamilyMemberScreenState();
 }
 
-class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
+class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
+    with TickerProviderStateMixin {
   final FamilyTreeService _familyTreeService = FamilyTreeService();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _searchController = TextEditingController();
-  
+
   String _selectedRelation = 'parent';
   String? _selectedUserId;
   bool _isLoading = false;
@@ -38,17 +40,41 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
     'cousin',
     'nephew',
     'niece',
-    'other'
+    'other',
   ];
+
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
+    _fadeController.forward();
+    _slideController.forward();
     _loadExistingMembers();
   }
 
   @override
   void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
     _nameController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -63,8 +89,10 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
-      final relationships = await _familyTreeService.getUserRelationships(userId);
-      
+      final relationships = await _familyTreeService.getUserRelationships(
+        userId,
+      );
+
       // Get family member details for each relationship
       final members = <FamilyMember>[];
       for (final relationship in relationships) {
@@ -73,7 +101,7 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
               .collection('users')
               .doc(relationship.toUserId)
               .get();
-          
+
           if (userDoc.exists) {
             final userData = userDoc.data() as Map<String, dynamic>;
             final member = FamilyMember(
@@ -157,6 +185,18 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
       return;
     }
 
+    // Prevent adding self
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId != null && _selectedUserId == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot add yourself.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isAddingMember = true;
     });
@@ -175,13 +215,13 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Clear form
         _nameController.clear();
         _searchController.clear();
         _selectedUserId = null;
         _searchResults = [];
-        
+
         // Reload existing members
         await _loadExistingMembers();
       }
@@ -210,7 +250,7 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
 
     try {
       await _familyTreeService.deleteFamilyMember(relationshipId);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -218,7 +258,7 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Reload existing members
         await _loadExistingMembers();
       }
@@ -246,7 +286,9 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Family Member'),
-          content: Text('Are you sure you want to delete $memberName from your family tree?'),
+          content: Text(
+            'Are you sure you want to delete $memberName from your family tree?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -266,214 +308,222 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
   }
 
   Widget _buildAddMemberForm() {
-    return Card(
+    return Container(
       margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Add Family Member',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Name field
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // Relation dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedRelation,
-                decoration: const InputDecoration(
-                  labelText: 'Relation Type',
-                  border: OutlineInputBorder(),
-                ),
-                items: _relationTypes.map((String relation) {
-                  return DropdownMenuItem<String>(
-                    value: relation,
-                    child: Text(relation.toUpperCase()),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedRelation = newValue!;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // User search field
-              TextFormField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search for user (optional)',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: _isSearching
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                ),
-                onChanged: _searchUsers,
-              ),
-              const SizedBox(height: 16),
-              
-              // Search results
-              if (_searchResults.isNotEmpty)
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListView.builder(
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      final user = _searchResults[index];
-                      final isSelected = _selectedUserId == user['id'];
-                      
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: user['profileImageUrl'] != null
-                              ? NetworkImage(user['profileImageUrl'])
-                              : null,
-                          child: user['profileImageUrl'] == null
-                              ? Text(user['name'][0].toUpperCase())
-                              : null,
-                        ),
-                        title: Text(user['name']),
-                        subtitle: Text(user['email']),
-                        trailing: isSelected
-                            ? const Icon(Icons.check, color: Colors.green)
-                            : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedUserId = user['id'];
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-              
-              const SizedBox(height: 16),
-              
-              // Add button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isAddingMember ? null : _addFamilyMember,
-                  child: _isAddingMember
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 8),
-                            Text('Adding...'),
-                          ],
-                        )
-                      : const Text('Add Family Member'),
-                ),
-              ),
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
       ),
-    );
-  }
-
-  Widget _buildExistingMembersList() {
-    if (_existingMembers.isEmpty) {
-      return const Card(
-        margin: EdgeInsets.all(16),
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(
-            child: Text(
-              'No family members found. Add some family members to get started.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Existing Family Members',
-              style: TextStyle(
+            Text(
+              'Add Family Member',
+              style: GoogleFonts.poppins(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _existingMembers.length,
-              itemBuilder: (context, index) {
-                final member = _existingMembers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: member.profileImageUrl != null
-                          ? NetworkImage(member.profileImageUrl!)
+
+            // Name field
+            TextFormField(
+              controller: _nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                hintText: 'Enter full name',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                prefixIcon: Icon(
+                  Icons.person_outline,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.white, width: 2),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a name';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Relation dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedRelation,
+              dropdownColor: Colors.black,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Relation Type',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.white, width: 2),
+                ),
+              ),
+              items: _relationTypes.map((String relation) {
+                return DropdownMenuItem<String>(
+                  value: relation,
+                  child: Text(relation.toUpperCase()),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedRelation = newValue!;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // User search field
+            TextFormField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Search for user (optional)',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.white, width: 2),
+                ),
+                suffixIcon: _isSearching
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
+              ),
+              onChanged: _searchUsers,
+            ),
+            const SizedBox(height: 16),
+
+            // Search results
+            if (_searchResults.isNotEmpty)
+              Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  border: Border.all(color: Colors.white.withOpacity(0.15)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListView.builder(
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final user = _searchResults[index];
+                    final isSelected = _selectedUserId == user['id'];
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: user['profileImageUrl'] != null
+                            ? NetworkImage(user['profileImageUrl'])
+                            : null,
+                        child: user['profileImageUrl'] == null
+                            ? Text(user['name'][0].toUpperCase())
+                            : null,
+                      ),
+                      title: Text(user['name']),
+                      subtitle: Text(user['email']),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Colors.green)
                           : null,
-                      child: member.profileImageUrl == null
-                          ? Text(member.name[0].toUpperCase())
-                          : null,
-                    ),
-                    title: Text(member.name),
-                    subtitle: Text(member.relation.toUpperCase()),
-                    trailing: _isDeleting
+                      onTap: () {
+                        setState(() {
+                          _selectedUserId = user['id'];
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            // Add button
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _isAddingMember ? null : _addFamilyMember,
+                  child: Center(
+                    child: _isAddingMember
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
                           )
-                        : IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteConfirmation(
-                              member.name,
-                              member.id,
+                        : Text(
+                            'Add Family Member',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -481,28 +531,167 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Family Members'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadExistingMembers,
+  Widget _buildExistingMembersList() {
+    if (_existingMembers.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.15)),
+        ),
+        child: Center(
+          child: Text(
+            'No family members found. Add some family members to get started.',
+            style: GoogleFonts.poppins(fontSize: 16, color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Existing Family Members',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _existingMembers.length,
+            itemBuilder: (context, index) {
+              final member = _existingMembers[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: member.profileImageUrl != null
+                        ? NetworkImage(member.profileImageUrl!)
+                        : null,
+                    child: member.profileImageUrl == null
+                        ? Text(member.name[0].toUpperCase())
+                        : null,
+                  ),
+                  title: Text(
+                    member.name,
+                    style: GoogleFonts.poppins(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    member.relation.toUpperCase(),
+                    style: GoogleFonts.poppins(color: Colors.white70),
+                  ),
+                  trailing: _isDeleting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () =>
+                              _showDeleteConfirmation(member.name, member.id),
+                        ),
+                ),
+              );
+            },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildAddMemberForm(),
-                  _buildExistingMembersList(),
-                ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Manage Family Members',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _loadExistingMembers,
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                _buildAddMemberForm(),
+                                _buildExistingMembersList(),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
