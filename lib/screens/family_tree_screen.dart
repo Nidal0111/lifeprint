@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lifeprint/models/family_member_model.dart';
-import 'package:lifeprint/screens/albums_screen.dart';
-import 'package:lifeprint/screens/notes_calendar_screen.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
 import 'package:lifeprint/screens/modern_home_screen.dart';
 import 'package:lifeprint/screens/add_family_member_screen.dart';
@@ -17,7 +16,6 @@ class FamilyTreeScreen extends StatefulWidget {
 
 class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   final FamilyTreeService _familyTreeService = FamilyTreeService();
-  final int _currentIndex = 2;
 
   bool _isLoading = false;
   Map<String, FamilyMember> _familyMembers = {};
@@ -77,7 +75,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   void _buildGraph() {
-    _graph = Graph();
+    _graph = Graph()..isTree = false;
 
     // Add nodes for all family members
     for (final member in _familyMembers.values) {
@@ -104,85 +102,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
-          stops: [0.0, 0.5, 1.0],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          if (index == currentIndex) return;
-          Widget target;
-          switch (index) {
-            case 0:
-              target = const ModernHomeScreen();
-              break;
-            case 1:
-              target = const AlbumsScreen();
-              break;
-            case 2:
-              target = const FamilyTreeScreen();
-              break;
-            case 3:
-              target = const NotesCalendarScreen();
-              break;
-            default:
-              target = const ModernHomeScreen();
-          }
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => target,
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-              transitionDuration: const Duration(milliseconds: 250),
-            ),
-          );
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.6),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.photo_library_outlined),
-            activeIcon: Icon(Icons.photo_library),
-            label: 'Memories',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.family_restroom_outlined),
-            activeIcon: Icon(Icons.family_restroom),
-            label: 'Family',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_note_outlined),
-            activeIcon: Icon(Icons.event_note),
-            label: 'Notes',
-          ),
-        ],
-      ),
-    );
-  }
+  // Removed unused bottom nav builder (handled by respective screens)
 
   Widget _buildFamilyTreeInfo() {
     return Card(
@@ -233,65 +153,214 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       );
     }
 
-    return InteractiveViewer(
-      minScale: 0.5,
-      maxScale: 3.0,
-      child: GraphView(
-        graph: _graph!,
-        algorithm: SugiyamaAlgorithm(
-          SugiyamaConfiguration()
-            ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM,
-        ),
-        builder: (node) {
-          final String keyStr =
-              node.key?.value?.toString() ?? node.key?.toString() ?? '';
-          final member = _familyMembers[keyStr];
-          if (member == null) return const SizedBox.shrink();
-
-          return GestureDetector(
-            onTap: () => _openUserMemories(member.linkedUserId),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                border: Border.all(color: Colors.blue.shade200),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundImage: member.profileImageUrl != null
-                        ? NetworkImage(member.profileImageUrl!)
-                        : null,
-                    child: member.profileImageUrl == null
-                        ? Text(
-                            member.name[0].toUpperCase(),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    member.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  Text(
-                    member.relation,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+    if (_graph!.nodeCount == 1) {
+      // Fallback UI for a single node to avoid GraphView layout issues
+      final member = _familyMembers.values.first;
+      return Center(
+        child: GestureDetector(
+          onTap: () => _openUserMemories(member.linkedUserId),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              border: Border.all(color: Colors.blue.shade200),
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        },
-      ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: member.profileImageUrl != null
+                      ? NetworkImage(member.profileImageUrl!)
+                      : null,
+                  child: member.profileImageUrl == null
+                      ? Text(
+                          member.name[0].toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  member.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  member.relation,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // On web, GraphView can produce NaN sizes. Use a grid fallback there.
+    if (kIsWeb) {
+      final members = _familyMembers.values.toList(growable: false);
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = (constraints.maxWidth ~/ 180).clamp(1, 6);
+            return GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.2,
+              ),
+              itemCount: members.length,
+              itemBuilder: (context, index) {
+                final member = members[index];
+                return GestureDetector(
+                  onTap: () => _openUserMemories(member.linkedUserId),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      border: Border.all(color: Colors.blue.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage: member.profileImageUrl != null
+                              ? NetworkImage(member.profileImageUrl!)
+                              : null,
+                          child: member.profileImageUrl == null
+                              ? Text(
+                                  member.name[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          member.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          member.relation,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final double height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : 400;
+
+        return SizedBox(
+          width: width,
+          height: height,
+          child: InteractiveViewer(
+            constrained: true,
+            boundaryMargin: const EdgeInsets.all(24),
+            minScale: 0.5,
+            maxScale: 3.0,
+            child: GraphView(
+              graph: _graph!,
+              algorithm: SugiyamaAlgorithm(
+                SugiyamaConfiguration()
+                  ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM
+                  ..nodeSeparation = 32
+                  ..levelSeparation = 56,
+              ),
+              builder: (node) {
+                final String keyStr =
+                    node.key?.value?.toString() ?? node.key?.toString() ?? '';
+                final member = _familyMembers[keyStr];
+                if (member == null) return const SizedBox.shrink();
+
+                return GestureDetector(
+                  onTap: () => _openUserMemories(member.linkedUserId),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      border: Border.all(color: Colors.blue.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundImage: member.profileImageUrl != null
+                              ? NetworkImage(member.profileImageUrl!)
+                              : null,
+                          child: member.profileImageUrl == null
+                              ? Text(
+                                  member.name[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          member.name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          member.relation,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -344,13 +413,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            _buildFamilyTreeInfo(),
-                            const SizedBox(height: 16),
-                            Container(
-                              height: 600,
+                    : Column(
+                        children: [
+                          _buildFamilyTreeInfo(),
+                          const SizedBox(height: 16),
+                          Expanded(
+                            child: Container(
                               margin: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.06),
@@ -361,8 +429,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                               ),
                               child: _buildFamilyTree(),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
               ),
             ],

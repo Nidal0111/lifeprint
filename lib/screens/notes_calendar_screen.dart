@@ -213,7 +213,7 @@ class _NotesCalendarScreenState extends State<NotesCalendarScreen>
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: isSelected ? const Color(0xFF667eea) : Colors.white,
+                  color: isSelected ? const Color(0xFF667eea) : const Color.fromARGB(255, 238, 182, 243),
                 ),
               ),
               selected: isSelected,

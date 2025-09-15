@@ -113,7 +113,7 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
               label: Text(
                 emotion,
                 style: GoogleFonts.poppins(
-                  color: isSelected ? const Color(0xFF667eea) : Colors.white,
+                  color: isSelected ? const Color(0xFF667eea) : const Color.fromARGB(255, 234, 126, 248),
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
@@ -129,7 +129,7 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
               side: BorderSide(
                 color: isSelected
                     ? Colors.white
-                    : Colors.white.withOpacity(0.3),
+                    : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.3),
               ),
             ),
           );

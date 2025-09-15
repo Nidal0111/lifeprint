@@ -311,13 +311,13 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color.fromARGB(255, 210, 85, 235)),
                   decoration: InputDecoration(
                     hintText: 'Search...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
+                    hintStyle: TextStyle(color: Color.fromARGB(255, 236, 175, 248)),
                     prefixIcon: Icon(
                       Icons.search,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Color.fromARGB(255, 210, 85, 235),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -366,7 +366,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                             style: TextStyle(
                               color: isSelected
                                   ? const Color(0xFF667eea)
-                                  : Colors.white,
+                                  : const Color.fromARGB(255, 214, 142, 243),
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.w500,
