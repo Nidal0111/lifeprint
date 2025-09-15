@@ -149,20 +149,23 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               ),
                               elevation: 5,
                             ),
-                            onPressed: () {
-                              loginPage(
-                                EmailAddress: _emailController.text,
-                                Password: _passwordController.text,
-                                context: context,
-                              );
-                            },
-                            child: Text(
-                              "Sign In",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    "Sign In",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 30),
@@ -344,4 +347,56 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
+  void _handleLogin() async {
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty) {
+      _showMessage("Please enter your email address");
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showMessage("Please enter your password");
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      _showMessage("Please enter a valid email address");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await loginPage(
+        EmailAddress: email,
+        Password: password,
+        context: context,
+      );
+    } catch (e) {
+      _showMessage("Error: ${e.toString()}");
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.deepPurple,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 }

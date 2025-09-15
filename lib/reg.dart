@@ -3,8 +3,10 @@ import 'package:animated_background/animated_background.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:lifeprint/authservice.dart';
+import 'package:lifeprint/cloudinary_service.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -20,10 +22,12 @@ class _RegisterPageState extends State<RegisterPage>
       TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
-  File? _profileImage;
+  XFile? _profileImage;
+  String? _profileImageUrl;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  bool _isUploadingImage = false;
   bool _agreeToTerms = false;
 
   @override
@@ -127,49 +131,83 @@ class _RegisterPageState extends State<RegisterPage>
                                 child: CircleAvatar(
                                   radius: 60,
                                   backgroundColor: Colors.grey[100],
-                                  backgroundImage: _profileImage != null
-                                      ? FileImage(_profileImage!)
-                                      : null,
-                                  child: _profileImage == null
-                                      ? const Icon(
-                                          Icons.camera_alt,
-                                          size: 40,
-                                          color: Colors.deepPurple,
-                                        )
+                                  backgroundImage: _profileImageUrl != null
+                                      ? NetworkImage(_profileImageUrl!)
+                                      : (_profileImage != null
+                                            ? kIsWeb
+                                                  ? NetworkImage(
+                                                      _profileImage!.path,
+                                                    )
+                                                  : FileImage(
+                                                      File(_profileImage!.path),
+                                                    )
+                                            : null),
+                                  child:
+                                      _profileImageUrl == null &&
+                                          _profileImage == null
+                                      ? (_isUploadingImage
+                                            ? const CircularProgressIndicator(
+                                                color: Colors.deepPurple,
+                                                strokeWidth: 2,
+                                              )
+                                            : const Icon(
+                                                Icons.camera_alt,
+                                                size: 40,
+                                                color: Colors.deepPurple,
+                                              ))
                                       : null,
                                 ),
                               ),
                               Positioned(
                                 bottom: 0,
                                 right: 0,
-                                child: GestureDetector(
-                                  onTap: _showImagePicker,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.deepPurple,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
+                                child: kIsWeb
+                                    ? _buildWebImagePickerButton()
+                                    : GestureDetector(
+                                        onTap: _showImagePicker,
+                                        onLongPress: _profileImageUrl != null
+                                            ? _clearProfilePicture
+                                            : null,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: _profileImageUrl != null
+                                                ? Colors.red
+                                                : Colors.deepPurple,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            _profileImageUrl != null
+                                                ? Icons.close
+                                                : Icons.add,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.add,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          "Add Profile Picture",
+                          _isUploadingImage
+                              ? "Uploading..."
+                              : (_profileImageUrl != null
+                                    ? "Profile Picture Added"
+                                    : kIsWeb
+                                    ? "Click to upload image file"
+                                    : "Add Profile Picture"),
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: _isUploadingImage
+                                ? Colors.orange[600]
+                                : (_profileImageUrl != null
+                                      ? Colors.green[600]
+                                      : Colors.grey[600]),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -268,16 +306,7 @@ class _RegisterPageState extends State<RegisterPage>
                               ),
                               elevation: 5,
                             ),
-                            onPressed: () {
-                              Registerss(
-                                ConfirmPassword:
-                                    _confirmPasswordController.text,
-                                Password: _passwordController.text,
-                                EmailAddress: _emailController.text,
-                                FullName: _fullNameController.text,
-                                context: context,
-                              );
-                            },
+                            onPressed: _isLoading ? null : _handleRegister,
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
@@ -484,6 +513,13 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   void _showImagePicker() {
+    // For web, directly open file picker without dialog
+    if (kIsWeb) {
+      _pickImage(ImageSource.gallery);
+      return;
+    }
+
+    // For mobile, show bottom sheet with camera and gallery options
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
@@ -557,21 +593,73 @@ class _RegisterPageState extends State<RegisterPage>
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        maxWidth: 300,
-        maxHeight: 300,
-        imageQuality: 80,
+        // No size or quality restrictions - upload original image
       );
 
       if (image != null && mounted) {
         setState(() {
-          _profileImage = File(image.path);
+          _profileImage = image;
+          _isUploadingImage = true;
         });
-        Navigator.pop(context); // Close the bottom sheet
-        _showSnackBar("Profile picture updated!");
+
+        // Close bottom sheet only on mobile
+        if (!kIsWeb) {
+          Navigator.pop(context);
+        }
+
+        // Upload to Cloudinary with platform-specific optimization
+        String? imageUrl;
+
+        // First, try the optimized method
+        if (kIsWeb) {
+          imageUrl = await CloudinaryService.uploadImageWebOptimized(
+            _profileImage!,
+          );
+        } else {
+          imageUrl = await CloudinaryService.uploadImageWithTransformations(
+            _profileImage!,
+            width: 200,
+            height: 200,
+            crop: 'fill',
+            gravity: 'face',
+          );
+        }
+
+        // If optimized method fails, try fallback method
+        if (imageUrl == null) {
+          print('Optimized upload failed, trying fallback method...');
+          imageUrl = await CloudinaryService.uploadImageSimple(_profileImage!);
+        }
+
+        if (imageUrl != null && mounted) {
+          setState(() {
+            _profileImageUrl = imageUrl;
+            _isUploadingImage = false;
+          });
+          _showSnackBar("Profile picture uploaded successfully!");
+        } else {
+          setState(() {
+            _isUploadingImage = false;
+          });
+          _showSnackBar("Failed to upload image. Please try again.");
+        }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar("Error picking image: $e");
+        setState(() {
+          _isUploadingImage = false;
+        });
+        String errorMessage = "Error picking image: $e";
+
+        // Provide more specific error messages for web
+        if (kIsWeb) {
+          if (e.toString().contains('permission')) {
+            errorMessage =
+                "Permission denied. Please allow file access and try again.";
+          }
+        }
+
+        _showSnackBar(errorMessage);
       }
     }
   }
@@ -583,6 +671,108 @@ class _RegisterPageState extends State<RegisterPage>
         backgroundColor: Colors.deepPurple,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  void _handleRegister() async {
+    String fullName = _fullNameController.text.trim();
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+    String confirmPassword = _confirmPasswordController.text.trim();
+
+    // Validation
+    if (fullName.isEmpty) {
+      _showSnackBar("Please enter your full name");
+      return;
+    }
+
+    if (email.isEmpty) {
+      _showSnackBar("Please enter your email address");
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      _showSnackBar("Please enter a valid email address");
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showSnackBar("Please enter a password");
+      return;
+    }
+
+    if (password.length < 6) {
+      _showSnackBar("Password must be at least 6 characters long");
+      return;
+    }
+
+    if (confirmPassword.isEmpty) {
+      _showSnackBar("Please confirm your password");
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showSnackBar("Passwords do not match");
+      return;
+    }
+
+    if (!_agreeToTerms) {
+      _showSnackBar("Please agree to the Terms & Conditions");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await Registerss(
+        ConfirmPassword: confirmPassword,
+        Password: password,
+        EmailAddress: email,
+        FullName: fullName,
+        ProfileImageUrl: _profileImageUrl,
+        context: context,
+      );
+    } catch (e) {
+      _showSnackBar("Error: ${e.toString()}");
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  void _clearProfilePicture() {
+    setState(() {
+      _profileImage = null;
+      _profileImageUrl = null;
+      _isUploadingImage = false;
+    });
+    _showSnackBar("Profile picture removed");
+  }
+
+  Widget _buildWebImagePickerButton() {
+    return GestureDetector(
+      onTap: _showImagePicker,
+      onLongPress: _profileImageUrl != null ? _clearProfilePicture : null,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: _profileImageUrl != null ? Colors.red : Colors.deepPurple,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: Icon(
+          _profileImageUrl != null ? Icons.close : Icons.upload_file,
+          color: Colors.white,
+          size: 20,
+        ),
       ),
     );
   }

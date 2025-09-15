@@ -7,6 +7,7 @@ Future<void> Registerss({
   required String EmailAddress,
   required String Password,
   required String ConfirmPassword,
+  String? ProfileImageUrl,
   required BuildContext context,
 }) async {
   try {
@@ -16,22 +17,51 @@ Future<void> Registerss({
           password: Password,
         );
     User? user = userCredential.user;
-    await FirebaseFirestore.instance.collection("users").doc(user?.uid).set({
+
+    // Prepare user data
+    Map<String, dynamic> userData = {
       "Full Name": FullName,
       "Email Address": EmailAddress,
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("User created successfully"),
-        backgroundColor: Colors.deepPurple,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+      "Created At": FieldValue.serverTimestamp(),
+      "Updated At": FieldValue.serverTimestamp(),
+    };
+
+    // Add profile image URL if provided
+    if (ProfileImageUrl != null && ProfileImageUrl.isNotEmpty) {
+      userData["Profile Image URL"] = ProfileImageUrl;
+    }
+
+    await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user?.uid)
+        .set(userData);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("User created successfully"),
+          backgroundColor: Colors.deepPurple,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   } catch (e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(e.toString())));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Registration failed: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow; // Re-throw to be caught by the calling function
   }
 }
 
@@ -45,39 +75,68 @@ Future<void> loginPage({
       email: EmailAddress,
       password: Password,
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("User login successfully"),
-        backgroundColor: Colors.deepPurple,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("User login successfully"),
+          backgroundColor: Colors.deepPurple,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   } catch (e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(e.toString())));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Login failed: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow; // Re-throw to be caught by the calling function
   }
 }
 
 Future<void> forgotten({
   required String Email,
-
   required BuildContext context,
 }) async {
   try {
     await FirebaseAuth.instance.sendPasswordResetEmail(email: Email);
-   ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Check your inbox"),
-        backgroundColor: Colors.deepPurple,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Check your inbox"),
+          backgroundColor: Colors.deepPurple,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   } catch (e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(e.toString())));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to send reset email: ${e.toString()}"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    rethrow; // Re-throw to be caught by the calling function
   }
 }
