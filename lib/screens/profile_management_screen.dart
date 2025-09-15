@@ -15,6 +15,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -60,6 +61,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen>
     _fadeController.dispose();
     _slideController.dispose();
     _nameController.dispose();
+    _phoneController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -78,6 +80,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen>
         if (doc.exists) {
           final data = doc.data() as Map<String, dynamic>;
           _nameController.text = data['Full Name'] ?? '';
+          _phoneController.text = data['Phone Number']?.toString() ?? '';
         }
       } catch (e) {
         print('Error loading user data: $e');
@@ -100,6 +103,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen>
             .doc(user.uid)
             .update({
               'Full Name': _nameController.text.trim(),
+              'Phone Number': _phoneController.text.trim(),
               'Updated At': FieldValue.serverTimestamp(),
             });
 
@@ -402,6 +406,7 @@ Thank you for using LifePrint!''',
   }
 
   Widget _buildProfilePictureSection() {
+    final user = FirebaseAuth.instance.currentUser;
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
@@ -418,10 +423,30 @@ Thank you for using LifePrint!''',
       ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.white.withOpacity(0.2),
-            child: Icon(Icons.person, size: 50, color: Colors.white),
+          StreamBuilder<DocumentSnapshot>(
+            stream: user != null
+                ? FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .snapshots()
+                : null,
+            builder: (context, snapshot) {
+              String? profileUrl;
+              if (snapshot.hasData && snapshot.data!.exists) {
+                final data = snapshot.data!.data() as Map<String, dynamic>?;
+                profileUrl = data?['Profile Image URL'] as String?;
+              }
+              return CircleAvatar(
+                radius: 50,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundImage: profileUrl != null && profileUrl.isNotEmpty
+                    ? NetworkImage(profileUrl)
+                    : null,
+                child: (profileUrl == null || profileUrl.isEmpty)
+                    ? const Icon(Icons.person, size: 50, color: Colors.white)
+                    : null,
+              );
+            },
           ),
           const SizedBox(height: 16),
           Text(
@@ -511,6 +536,36 @@ Thank you for using LifePrint!''',
               }
               return null;
             },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Phone Number',
+              labelStyle: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.7),
+              ),
+              hintText: 'Enter phone number',
+              hintStyle: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.5),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white, width: 2),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           TextFormField(

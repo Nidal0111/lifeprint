@@ -145,15 +145,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          // Time
-          Text(
-            '9:30',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.8),
-            ),
-          ),
+          // Exact time and full date
+          _buildLiveClock(),
           const Spacer(),
           // Greeting with user name from Firestore
           StreamBuilder<DocumentSnapshot>(
@@ -187,7 +180,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           // Profile and Logout Buttons
           Row(
             children: [
-              // Profile Button
+              // Profile Button with user photo
               Container(
                 width: 40,
                 height: 40,
@@ -229,10 +222,43 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                         ),
                       );
                     },
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: StreamBuilder<DocumentSnapshot>(
+                        stream: user != null
+                            ? FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .snapshots()
+                            : null,
+                        builder: (context, snapshot) {
+                          String? profileUrl;
+                          if (snapshot.hasData && snapshot.data!.exists) {
+                            final data =
+                                snapshot.data!.data() as Map<String, dynamic>?;
+                            profileUrl = data?['Profile Image URL'] as String?;
+                          }
+                          if (profileUrl != null && profileUrl.isNotEmpty) {
+                            return Image.network(
+                              profileUrl,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) =>
+                                  const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                            );
+                          }
+                          return const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -279,6 +305,82 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     );
   }
 
+  Widget _buildLiveClock() {
+    return StreamBuilder<DateTime>(
+      // Tick every second for exact time
+      stream: Stream<DateTime>.periodic(
+        const Duration(seconds: 1),
+        (_) => DateTime.now(),
+      ),
+      initialData: DateTime.now(),
+      builder: (context, snapshot) {
+        final now = snapshot.data ?? DateTime.now();
+        final time = _formatTime(now);
+        final date = _formatFullDate(now);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              time, // e.g., 09:30:05
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              date, // e.g., Tuesday, 16 September 2025
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.85),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatTime(DateTime dt) {
+    int hour = dt.hour % 12;
+    hour = hour == 0 ? 12 : hour; // 0 or 12 -> 12
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    final h = hour.toString();
+    final m = dt.minute.toString().padLeft(2, '0');
+    final s = dt.second.toString().padLeft(2, '0');
+    return '$h:$m:$s $period';
+  }
+
+  String _formatFullDate(DateTime dt) {
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    const weekdayNames = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    final weekday = weekdayNames[dt.weekday - 1];
+    final month = monthNames[dt.month - 1];
+    return '$weekday, ${dt.day} $month ${dt.year}';
+  }
+
   Widget _buildSearchSection(BuildContext context) {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -311,10 +413,14 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Color.fromARGB(255, 210, 85, 235)),
+                  style: const TextStyle(
+                    color: Color.fromARGB(255, 210, 85, 235),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search...',
-                    hintStyle: TextStyle(color: Color.fromARGB(255, 236, 175, 248)),
+                    hintStyle: TextStyle(
+                      color: Color.fromARGB(255, 236, 175, 248),
+                    ),
                     prefixIcon: Icon(
                       Icons.search,
                       color: Color.fromARGB(255, 210, 85, 235),
