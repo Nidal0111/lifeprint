@@ -20,6 +20,29 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _releaseDateController = TextEditingController();
+  final Set<String> _selectedEmotions = <String>{};
+  final List<String> _allEmotions = const [
+    'Joy',
+    'Nostalgia',
+    'Sadness',
+    'Excitement',
+    'Love',
+    'Gratitude',
+    'Peace',
+    'Adventure',
+    'Achievement',
+    'Family',
+    'Friendship',
+    'Romance',
+    'Hope',
+    'Pride',
+    'Wonder',
+    'Calm',
+    'Energy',
+    'Reflection',
+    'Celebration',
+  ];
+  final List<String> _linkedFamilyMemberNames = <String>[]; // UI-only
 
   File? _selectedFile;
   MemoryType _selectedType = MemoryType.photo;
@@ -48,10 +71,10 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-        .animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
 
     _fadeController.forward();
     _slideController.forward();
@@ -110,6 +133,14 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
 
                             // Release Date Input
                             _buildReleaseDateInput(),
+                            const SizedBox(height: 24),
+
+                            // Emotion Tags (UI-only)
+                            _buildEmotionTagsSection(),
+                            const SizedBox(height: 24),
+
+                            // Link Family Members (UI-only)
+                            _buildLinkFamilyMembersSection(),
                             const SizedBox(height: 32),
 
                             // Upload Button
@@ -182,10 +213,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -213,175 +241,174 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
           ),
           const SizedBox(height: 16),
 
-            // Selected File Preview
-            if (_selectedFile != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _getFileIcon(_selectedFile!.path),
-                      color: Colors.deepPurple,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedFile!.path.split('/').last,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            CloudinaryService.getFileSizeString(
-                              _selectedFile!.readAsBytesSync().length,
-                            ),
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedFile = null;
-                        });
-                      },
-                      icon: const Icon(Icons.close, color: Colors.red),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Media Selection Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: _isUploading ? null : _selectImage,
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.photo_camera, color: Colors.white),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Photo',
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: _isUploading ? null : _selectVideo,
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.videocam, color: Colors.white),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Video',
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+          // Selected File Preview
+          if (_selectedFile != null) ...[
             Container(
-              height: 48,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
-                ),
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: _isUploading ? null : _selectAudio,
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              child: Row(
+                children: [
+                  Icon(
+                    _getFileIcon(_selectedFile!.path),
+                    color: Colors.deepPurple,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.audiotrack, color: Colors.white),
-                        const SizedBox(width: 8),
                         Text(
-                          'Audio File',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
+                          _selectedFile!.path.split('/').last,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          CloudinaryService.getFileSizeString(
+                            _selectedFile!.readAsBytesSync().length,
+                          ),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedFile = null;
+                      });
+                    },
+                    icon: const Icon(Icons.close, color: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Media Selection Buttons
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _isUploading ? null : _selectImage,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.photo_camera, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Photo',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _isUploading ? null : _selectVideo,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.videocam, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Video',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _isUploading ? null : _selectAudio,
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.audiotrack, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Audio File',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-    
+          ),
+        ],
+      ),
     );
   }
 
@@ -391,10 +418,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -421,39 +445,38 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
             ],
           ),
           const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: MemoryType.values.map((type) {
-                return ChoiceChip(
-                  label: Text(
-                    type.displayName,
-                    style: GoogleFonts.poppins(
-                      color: _selectedType == type ? Colors.black : Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: MemoryType.values.map((type) {
+              return ChoiceChip(
+                label: Text(
+                  type.displayName,
+                  style: GoogleFonts.poppins(
+                    color: _selectedType == type ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w500,
                   ),
-                  selected: _selectedType == type,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedType = type;
-                      });
-                    }
-                  },
-                  selectedColor: Colors.white,
-                  backgroundColor: Colors.white.withOpacity(0.1),
-                  checkmarkColor: Colors.black,
-                  side: BorderSide(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 1,
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-    
+                ),
+                selected: _selectedType == type,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() {
+                      _selectedType = type;
+                    });
+                  }
+                },
+                selectedColor: Colors.white,
+                backgroundColor: Colors.white.withOpacity(0.1),
+                checkmarkColor: Colors.black,
+                side: BorderSide(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -463,10 +486,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -509,16 +529,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withOpacity(0.3),
-                ),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Colors.white,
-                  width: 2,
-                ),
+                borderSide: const BorderSide(color: Colors.white, width: 2),
               ),
             ),
             validator: (value) {
@@ -539,10 +554,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -585,16 +597,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withOpacity(0.3),
-                ),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Colors.white,
-                  width: 2,
-                ),
+                borderSide: const BorderSide(color: Colors.white, width: 2),
               ),
               suffixIcon: IconButton(
                 onPressed: _selectReleaseDate,
@@ -605,6 +612,244 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmotionTagsSection() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tag, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Emotion Tags (UI only)',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _allEmotions.map((emotion) {
+              final isSelected = _selectedEmotions.contains(emotion);
+              return FilterChip(
+                label: Text(
+                  emotion,
+                  style: GoogleFonts.poppins(
+                    color: isSelected ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedEmotions.add(emotion);
+                    } else {
+                      _selectedEmotions.remove(emotion);
+                    }
+                  });
+                },
+                selectedColor: Colors.white,
+                backgroundColor: Colors.white.withOpacity(0.1),
+                checkmarkColor: Colors.black,
+                side: BorderSide(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkFamilyMembersSection() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.family_restroom, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Link Family Members (UI only)',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_linkedFamilyMemberNames.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _linkedFamilyMemberNames
+                  .map(
+                    (name) => Chip(
+                      label: Text(name),
+                      backgroundColor: Colors.white.withOpacity(0.9),
+                    ),
+                  )
+                  .toList(),
+            ),
+          if (_linkedFamilyMemberNames.isNotEmpty) const SizedBox(height: 12),
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _openLinkFamilySheet,
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.person_add, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Choose Family Members',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openLinkFamilySheet() {
+    final demoMembers = <String>[
+      'Alice Johnson',
+      'Bob Smith',
+      'Charlie Lee',
+      'Diana Patel',
+      'Evan Chen',
+    ];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        final Set<String> tempSelection = _linkedFamilyMemberNames.toSet();
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select Family Members',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: demoMembers.length,
+                        itemBuilder: (context, index) {
+                          final name = demoMembers[index];
+                          final selected = tempSelection.contains(name);
+                          return CheckboxListTile(
+                            title: Text(name),
+                            value: selected,
+                            onChanged: (val) {
+                              setModalState(() {
+                                if (val == true) {
+                                  tempSelection.add(name);
+                                } else {
+                                  tempSelection.remove(name);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _linkedFamilyMemberNames
+                              ..clear()
+                              ..addAll(tempSelection);
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Done'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -639,7 +884,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -813,7 +1060,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         title: _titleController.text.trim(),
         type: _selectedType,
         cloudinaryUrl: cloudinaryUrl,
-        emotions: [], // Can be added later
+        emotions: _selectedEmotions.toList(),
         releaseDate: _releaseDate,
         createdAt: DateTime.now(),
         createdBy: user.uid,

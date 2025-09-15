@@ -12,6 +12,8 @@ import 'package:lifeprint/screens/family_tree_screen.dart';
 import 'package:lifeprint/models/memory_model.dart';
 import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/services/event_service.dart';
+import 'package:lifeprint/screens/speech_to_text_screen.dart';
+import 'package:lifeprint/screens/legacy_chatbot_screen.dart';
 
 class ModernHomeScreen extends StatefulWidget {
   final String? selectedUserId;
@@ -126,6 +128,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
               if (_todaysEvents.isNotEmpty) _buildTodaysEventsSection(),
               // Search and Filter Section
               _buildSearchSection(context),
+              // AI Demos row (UI only)
+              _buildAIDemosRow(context),
               // Memories List
               Expanded(child: _buildMemoriesList(displayUserId)),
             ],
@@ -135,6 +139,80 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       bottomNavigationBar: _buildBottomNavigationBar(),
       floatingActionButton: _buildFloatingActionButton(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  Widget _buildAIDemosRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _aiCard(
+              context,
+              icon: Icons.mic,
+              title: 'Speech to Text',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SpeechToTextScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _aiCard(
+              context,
+              icon: Icons.smart_toy,
+              title: 'Legacy Chatbot',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LegacyChatbotScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _aiCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -586,6 +664,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     final now = DateTime.now();
     final isLocked =
         memory.releaseDate != null && memory.releaseDate!.isAfter(now);
+    final remaining = isLocked ? memory.releaseDate!.difference(now) : null;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -765,7 +844,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'Locked',
+                                          _formatRemaining(remaining!),
                                           style: Theme.of(context)
                                               .textTheme
                                               .bodySmall
@@ -779,6 +858,34 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                                   ),
                               ],
                             ),
+                            const SizedBox(height: 8),
+                            if (memory.emotions.isNotEmpty)
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: memory.emotions.map((e) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.15),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.25),
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      e,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Colors.white),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                           ],
                         ),
                       ),
@@ -809,6 +916,24 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         ),
       ),
     );
+  }
+
+  String _formatRemaining(Duration remaining) {
+    if (remaining.inDays > 0) {
+      final days = remaining.inDays;
+      final hours = remaining.inHours % 24;
+      return '$days d ${hours}h';
+    } else if (remaining.inHours > 0) {
+      final hours = remaining.inHours;
+      final mins = remaining.inMinutes % 60;
+      return '${hours}h ${mins}m';
+    } else if (remaining.inMinutes > 0) {
+      final mins = remaining.inMinutes;
+      final secs = remaining.inSeconds % 60;
+      return '${mins}m ${secs}s';
+    } else {
+      return 'Unlocking soon';
+    }
   }
 
   IconData _getTypeIcon(MemoryType type) {
