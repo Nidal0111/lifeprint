@@ -1,32 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lifeprint/screens/add_memory_screen.dart';
-import 'package:lifeprint/screens/memory_detail_screen.dart';
-import 'package:lifeprint/screens/family_tree_screen.dart';
-import 'package:lifeprint/screens/albums_screen.dart';
 import 'package:lifeprint/models/memory_model.dart';
+import 'package:lifeprint/screens/memory_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  final String? selectedUserId;
+class AlbumsScreen extends StatefulWidget {
+  const AlbumsScreen({super.key});
 
-  const HomeScreen({super.key, this.selectedUserId});
+  @override
+  State<AlbumsScreen> createState() => _AlbumsScreenState();
+}
+
+class _AlbumsScreenState extends State<AlbumsScreen> {
+  String _selectedEmotion = 'All';
+
+  // Predefined emotion categories
+  final List<String> _emotionCategories = [
+    'All',
+    'Joy',
+    'Nostalgia',
+    'Sadness',
+    'Excitement',
+    'Love',
+    'Gratitude',
+    'Peace',
+    'Adventure',
+    'Achievement',
+    'Family',
+    'Friendship',
+    'Romance',
+    'Hope',
+    'Pride',
+    'Wonder',
+    'Calm',
+    'Energy',
+    'Reflection',
+    'Celebration',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final displayUserId = selectedUserId ?? user?.uid;
-
-    if (displayUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in to view your memories')),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          selectedUserId != null ? 'Family Member\'s Memories' : 'LifePrint',
+          'Memory Albums',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             color: Theme.of(context).colorScheme.onPrimary,
             fontWeight: FontWeight.w600,
@@ -36,226 +53,70 @@ class HomeScreen extends StatelessWidget {
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
         scrolledUnderElevation: 1,
-        actions: selectedUserId == null
-            ? [
-                IconButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            const FamilyTreeScreen(),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              return SlideTransition(
-                                position: animation.drive(
-                                  Tween(
-                                    begin: const Offset(1.0, 0.0),
-                                    end: Offset.zero,
-                                  ).chain(CurveTween(curve: Curves.easeInOut)),
-                                ),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.family_restroom),
-                  tooltip: 'Family Tree',
-                ),
-                IconButton(
-                  onPressed: () async {
-                    try {
-                      await FirebaseAuth.instance.signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushReplacementNamed('/login');
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error signing out: $e'),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.logout),
-                  tooltip: 'Sign Out',
-                ),
-              ]
-            : [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Back',
-                ),
-              ],
       ),
       body: Column(
         children: [
-          // Quick Actions Section (only show for current user)
-          if (selectedUserId == null) ...[
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Welcome Card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.memory,
-                              size: 48,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Welcome to LifePrint',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Capture and preserve your precious memories',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Action Buttons Row
-                  Row(
-                    children: [
-                      // Add Memory Button
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                pageBuilder:
-                                    (context, animation, secondaryAnimation) =>
-                                        const AddMemoryScreen(),
-                                transitionsBuilder:
-                                    (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      child,
-                                    ) {
-                                      return SlideTransition(
-                                        position: animation.drive(
-                                          Tween(
-                                            begin: const Offset(0.0, 1.0),
-                                            end: Offset.zero,
-                                          ).chain(
-                                            CurveTween(curve: Curves.easeInOut),
-                                          ),
-                                        ),
-                                        child: child,
-                                      );
-                                    },
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                          label: const Text('Add Memory'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Albums Button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                pageBuilder:
-                                    (context, animation, secondaryAnimation) =>
-                                        const AlbumsScreen(),
-                                transitionsBuilder:
-                                    (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      child,
-                                    ) {
-                                      return SlideTransition(
-                                        position: animation.drive(
-                                          Tween(
-                                            begin: const Offset(1.0, 0.0),
-                                            end: Offset.zero,
-                                          ).chain(
-                                            CurveTween(curve: Curves.easeInOut),
-                                          ),
-                                        ),
-                                        child: child,
-                                      );
-                                    },
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.photo_library, size: 20),
-                          label: const Text('Albums'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // Emotion Filter Chips
+          _buildEmotionChips(),
 
           // Memories List
-          Expanded(child: _buildMemoriesList(displayUserId)),
+          Expanded(child: _buildMemoriesList()),
         ],
       ),
     );
   }
 
-  Widget _buildMemoriesList(String userId) {
+  Widget _buildEmotionChips() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _emotionCategories.length,
+        itemBuilder: (context, index) {
+          final emotion = _emotionCategories[index];
+          final isSelected = _selectedEmotion == emotion;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(emotion),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedEmotion = emotion;
+                });
+              },
+              selectedColor: Theme.of(context).colorScheme.primaryContainer,
+              checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+              labelStyle: TextStyle(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+              side: BorderSide(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.outline,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMemoriesList() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Center(child: Text('Please log in to view your memories'));
+    }
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('memories')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
+      stream: _getMemoriesStream(user.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -289,59 +150,38 @@ class HomeScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.photo_library_outlined,
+                  _selectedEmotion == 'All'
+                      ? Icons.photo_library_outlined
+                      : _getEmotionIcon(_selectedEmotion),
                   size: 64,
                   color: Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No memories yet',
+                  _selectedEmotion == 'All'
+                      ? 'No memories yet'
+                      : 'No $_selectedEmotion memories',
                   style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tap "Add New Memory" to get started',
+                  _selectedEmotion == 'All'
+                      ? 'Tap "Add New Memory" to get started'
+                      : 'Try selecting a different emotion or add memories with this emotion',
                   style: TextStyle(color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
           );
         }
 
-        final now = DateTime.now();
         final memories = snapshot.data!.docs
             .map((doc) => MemoryModel.fromDocument(doc))
-            .where((memory) {
-              // Filter: show memories where releaseDate is null OR releaseDate <= now
-              return memory.releaseDate == null ||
-                  memory.releaseDate!.isBefore(now) ||
-                  memory.releaseDate!.isAtSameMomentAs(now);
-            })
             .toList();
 
-        if (memories.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.lock_outline, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No unlocked memories',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'All your memories are currently locked',
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          );
-        }
-
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.all(16),
           itemCount: memories.length,
           itemBuilder: (context, index) {
             final memory = memories[index];
@@ -350,6 +190,27 @@ class HomeScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Stream<QuerySnapshot> _getMemoriesStream(String userId) {
+    if (_selectedEmotion == 'All') {
+      // Return all memories ordered by createdAt
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('memories')
+          .orderBy('createdAt', descending: true)
+          .snapshots();
+    } else {
+      // Filter by emotion using array-contains
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('memories')
+          .where('emotions', arrayContains: _selectedEmotion.toLowerCase())
+          .orderBy('createdAt', descending: true)
+          .snapshots();
+    }
   }
 
   Widget _buildMemoryCard(BuildContext context, MemoryModel memory) {
@@ -391,7 +252,7 @@ class HomeScreen extends StatelessWidget {
 
             // Memory Info
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -470,36 +331,36 @@ class HomeScreen extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: memory.emotions.take(3).map((emotion) {
+                      children: memory.emotions.map((emotion) {
+                        final isHighlighted =
+                            emotion.toLowerCase() ==
+                            _selectedEmotion.toLowerCase();
                         return Chip(
                           label: Text(
                             emotion,
-                            style: const TextStyle(fontSize: 12),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isHighlighted
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
                           ),
-                          backgroundColor: _getEmotionColor(
-                            emotion,
-                          ).withOpacity(0.2),
+                          backgroundColor: isHighlighted
+                              ? Colors.deepPurple.withOpacity(0.2)
+                              : _getEmotionColor(emotion).withOpacity(0.2),
                           labelStyle: TextStyle(
-                            color: _getEmotionColor(emotion),
-                            fontWeight: FontWeight.w500,
+                            color: isHighlighted
+                                ? Colors.deepPurple
+                                : _getEmotionColor(emotion),
+                            fontWeight: isHighlighted
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                           ),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                         );
                       }).toList(),
                     ),
-                    if (memory.emotions.length > 3)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          '+${memory.emotions.length - 3} more',
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
                   ],
 
                   // Countdown for locked memories
@@ -719,58 +580,6 @@ class HomeScreen extends StatelessWidget {
               child: Icon(Icons.lock, size: 48, color: Colors.white),
             ),
           ),
-          // Small lock icon in top-right corner
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.orange[600],
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.lock, size: 16, color: Colors.white),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Add small lock icon for memories with release date (even if unlocked)
-    if (memory.releaseDate != null) {
-      return Stack(
-        children: [
-          mediaWidget,
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isLocked ? Colors.orange[600] : Colors.green[600],
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                isLocked ? Icons.lock : Icons.schedule,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-          ),
         ],
       );
     }
@@ -791,18 +600,72 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  IconData _getEmotionIcon(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'joy':
+        return Icons.sentiment_very_satisfied;
+      case 'nostalgia':
+        return Icons.history;
+      case 'sadness':
+        return Icons.sentiment_dissatisfied;
+      case 'excitement':
+        return Icons.celebration;
+      case 'love':
+        return Icons.favorite;
+      case 'gratitude':
+        return Icons.volunteer_activism;
+      case 'peace':
+        return Icons.spa;
+      case 'adventure':
+        return Icons.explore;
+      case 'achievement':
+        return Icons.emoji_events;
+      case 'family':
+        return Icons.family_restroom;
+      case 'friendship':
+        return Icons.people;
+      case 'romance':
+        return Icons.favorite_border;
+      case 'hope':
+        return Icons.lightbulb;
+      case 'pride':
+        return Icons.flag;
+      case 'wonder':
+        return Icons.auto_awesome;
+      case 'calm':
+        return Icons.waves;
+      case 'energy':
+        return Icons.bolt;
+      case 'reflection':
+        return Icons.self_improvement;
+      case 'celebration':
+        return Icons.party_mode;
+      default:
+        return Icons.emoji_emotions;
+    }
+  }
+
   Color _getEmotionColor(String emotion) {
     final emotionColors = {
-      'happy': Colors.yellow,
-      'sad': Colors.blue,
-      'angry': Colors.red,
-      'excited': Colors.orange,
-      'calm': Colors.green,
-      'anxious': Colors.purple,
-      'grateful': Colors.teal,
-      'nostalgic': Colors.brown,
-      'proud': Colors.indigo,
-      'hopeful': Colors.lightGreen,
+      'joy': Colors.yellow,
+      'nostalgia': Colors.brown,
+      'sadness': Colors.blue,
+      'excitement': Colors.orange,
+      'love': Colors.red,
+      'gratitude': Colors.teal,
+      'peace': Colors.green,
+      'adventure': Colors.purple,
+      'achievement': Colors.indigo,
+      'family': Colors.pink,
+      'friendship': Colors.cyan,
+      'romance': Colors.pinkAccent,
+      'hope': Colors.lightGreen,
+      'pride': Colors.amber,
+      'wonder': Colors.deepPurple,
+      'calm': Colors.lightBlue,
+      'energy': Colors.redAccent,
+      'reflection': Colors.grey,
+      'celebration': Colors.orangeAccent,
     };
     return emotionColors[emotion.toLowerCase()] ?? Colors.grey;
   }

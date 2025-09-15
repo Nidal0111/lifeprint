@@ -221,11 +221,22 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Tree'),
+        title: Text(
+          'Family Tree',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 1,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadFamilyTree,
+            tooltip: 'Refresh Family Tree',
           ),
         ],
       ),
@@ -252,8 +263,21 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         onPressed: () {
           Navigator.of(context)
               .push(
-                MaterialPageRoute(
-                  builder: (context) => const AddFamilyMemberScreen(),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const AddFamilyMemberScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position: animation.drive(
+                            Tween(
+                              begin: const Offset(0.0, 1.0),
+                              end: Offset.zero,
+                            ).chain(CurveTween(curve: Curves.easeInOut)),
+                          ),
+                          child: child,
+                        );
+                      },
                 ),
               )
               .then((_) {
@@ -263,8 +287,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         },
         icon: const Icon(Icons.person_add),
         label: const Text('Add Member'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
     );
   }

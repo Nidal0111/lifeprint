@@ -18,44 +18,114 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'LifePrint',
       theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        fontFamily: 'Roboto',
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
           brightness: Brightness.light,
         ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+          displayMedium: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.25,
+          ),
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+          headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+          bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+        ),
+        appBarTheme: AppBarTheme(
           centerTitle: true,
           elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.deepPurple,
+          scrolledUnderElevation: 1,
+          titleTextStyle: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.15,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 1,
+          shadowColor: Colors.black.withOpacity(0.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            elevation: 5,
+            elevation: 1,
+            shadowColor: Colors.black.withOpacity(0.2),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.grey[50],
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Colors.grey[300]!),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 18,
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
           ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+        chipTheme: ChipThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
         ),
       ),
       home: StreamBuilder<User?>(
