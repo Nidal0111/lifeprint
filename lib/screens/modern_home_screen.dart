@@ -222,43 +222,52 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Exact time and full date
-          _buildLiveClock(),
-          const Spacer(),
-          // Greeting with user name from Firestore
-          StreamBuilder<DocumentSnapshot>(
-            stream: user != null
-                ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user.uid)
-                      .snapshots()
-                : null,
-            builder: (context, snapshot) {
-              String userName = 'User';
-              if (snapshot.hasData && snapshot.data!.exists) {
-                final data = snapshot.data!.data() as Map<String, dynamic>?;
-                userName = data?['Full Name'] ?? user?.displayName ?? 'User';
-              } else {
-                userName =
-                    user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
-              }
-
-              return Text(
-                'Hi, $userName',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+          // Left: Time and Date + Greeting
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLiveClock(),
+                const SizedBox(height: 4),
+                StreamBuilder<DocumentSnapshot>(
+                  stream: user != null
+                      ? FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    String userName = 'User';
+                    if (snapshot.hasData && snapshot.data!.exists) {
+                      final data =
+                          snapshot.data!.data() as Map<String, dynamic>?;
+                      userName =
+                          data?['Full Name'] ?? user?.displayName ?? 'User';
+                    } else {
+                      userName =
+                          user?.displayName ??
+                          user?.email?.split('@')[0] ??
+                          'User';
+                    }
+                    return Text(
+                      'Hi, $userName',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ],
+            ),
           ),
-          const Spacer(),
-          // Profile and Logout Buttons
+          // Right: Profile and Logout Buttons
           Row(
             children: [
-              // Profile Button with user photo
+              // Profile Button
               Container(
                 width: 40,
                 height: 40,

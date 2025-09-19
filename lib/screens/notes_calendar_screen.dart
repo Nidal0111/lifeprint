@@ -176,8 +176,14 @@ class _NotesCalendarScreenState extends State<NotesCalendarScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            tooltip: 'Back',
+          ),
+          SizedBox(width: 8),
           Text(
-            'Notes & Calendar',
+            'Calendar',
             style: GoogleFonts.poppins(
               fontSize: 24,
               fontWeight: FontWeight.w700,
