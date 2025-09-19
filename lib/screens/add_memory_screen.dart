@@ -453,7 +453,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 label: Text(
                   type.displayName,
                   style: GoogleFonts.poppins(
-                    color: _selectedType == type ? Colors.black : Colors.white,
+                    color: _selectedType == type ? Colors.black : const Color.fromARGB(255, 222, 136, 241),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -657,7 +657,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 label: Text(
                   emotion,
                   style: GoogleFonts.poppins(
-                    color: isSelected ? Colors.black : Colors.white,
+                    color: isSelected ?Colors.black : const Color.fromARGB(255, 222, 136, 241),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
