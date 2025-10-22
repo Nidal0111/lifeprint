@@ -36,12 +36,14 @@ class MemoryService {
       QuerySnapshot snapshot = await _firestore
           .collection(_collectionName)
           .where('createdBy', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
           .get();
 
       List<MemoryModel> memories = snapshot.docs
           .map((doc) => MemoryModel.fromDocument(doc))
           .toList();
+
+      // Sort by creation date client-side
+      memories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       print('Retrieved ${memories.length} memories for user: $userId');
       return memories;
@@ -57,12 +59,14 @@ class MemoryService {
       QuerySnapshot snapshot = await _firestore
           .collection(_collectionName)
           .where('linkedUserIds', arrayContains: userId)
-          .orderBy('createdAt', descending: true)
           .get();
 
       List<MemoryModel> memories = snapshot.docs
           .map((doc) => MemoryModel.fromDocument(doc))
           .toList();
+
+      // Sort by createdAt descending client-side
+      memories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       print('Retrieved ${memories.length} shared memories for user: $userId');
       return memories;
@@ -81,11 +85,32 @@ class MemoryService {
       // Get shared memories
       List<MemoryModel> sharedMemories = await getSharedMemories(userId);
 
-      // Combine and remove duplicates
-      List<MemoryModel> allMemories = [...ownMemories, ...sharedMemories];
-      allMemories = allMemories.toSet().toList(); // Remove duplicates
+      // Combine and remove duplicates by id (avoid relying on list equality)
+      final Map<String, MemoryModel> byId = {};
+      for (final m in ownMemories) {
+        byId[m.id] = m;
+      }
+      for (final m in sharedMemories) {
+        if (byId.containsKey(m.id)) {
+          // Merge linkedUserIds and mark as shared on the existing owner memory
+          final existing = byId[m.id]!;
+          final mergedLinked = {
+            ...existing.linkedUserIds,
+            ...m.linkedUserIds,
+          }.toList();
+          byId[m.id] = existing.copyWith(
+            linkedUserIds: mergedLinked,
+            isShared: true,
+          );
+        } else {
+          // Mark shared and add
+          byId[m.id] = m.copyWith(isShared: true);
+        }
+      }
 
-      // Sort by creation date
+      List<MemoryModel> allMemories = byId.values.toList();
+
+      // Sort by creation date (newest first)
       allMemories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       print('Retrieved ${allMemories.length} total memories for user: $userId');

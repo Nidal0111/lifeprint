@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lifeprint/services/chatbot_service.dart';
+import 'package:lifeprint/services/memory_service.dart';
+import 'package:lifeprint/screens/memory_detail_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lifeprint/models/memory_model.dart';
+import 'dart:convert';
 
 class LegacyChatbotScreen extends StatefulWidget {
   const LegacyChatbotScreen({super.key});
@@ -10,15 +15,24 @@ class LegacyChatbotScreen extends StatefulWidget {
 }
 
 class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
-  final List<_Message> _messages = <_Message>[
-    _Message(
-      text:
-          'Hi! I am your LifePrint assistant. I can help you explore your memories, family connections, and answer questions about your digital legacy. What would you like to know?',
-      isBot: true,
-    ),
-  ];
+  final List<_Message> _messages = <_Message>[];
   final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Add initial greeting
+    _messages.add(
+      _Message(
+        text:
+            'Hi! I am your LifePrint assistant. I can help you explore your memories, family connections, and answer questions about your digital legacy. What would you like to know?',
+        isBot: true,
+      ),
+    );
+  }
+
   final ChatbotService _chatbotService = ChatbotService();
+  final MemoryService _memoryService = MemoryService();
   bool _isTyping = false;
 
   @override
@@ -82,6 +96,10 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                         ? Colors.white.withOpacity(0.9)
                         : Colors.black;
                     final textColor = msg.isBot ? Colors.black : Colors.white;
+                    // If bot message offers opening a memory, show an 'Open' button
+                    final offersOpen =
+                        msg.isBot &&
+                        msg.text.contains('Want me to open that memory?');
                     return Align(
                       alignment: align,
                       child: Container(
@@ -97,9 +115,27 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                             color: Colors.white.withOpacity(0.2),
                           ),
                         ),
-                        child: Text(
-                          msg.text,
-                          style: GoogleFonts.poppins(color: textColor),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                msg.text,
+                                style: GoogleFonts.poppins(color: textColor),
+                              ),
+                            ),
+                            if (offersOpen) ...[
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () =>
+                                    _tryOpenMemoryFromBotText(msg.text),
+                                child: const Text('Open'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.deepPurple,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     );
@@ -168,9 +204,24 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
     try {
       final response = await _chatbotService.processMessage(text);
 
+      // The chatbot may return a JSON wrapper with { text, openMemoryTitle }
+      String botText = response;
+      String? openTitle;
+      try {
+        final parsed = jsonDecode(response);
+        if (parsed is Map<String, dynamic> && parsed['text'] != null) {
+          botText = parsed['text'].toString();
+          openTitle = parsed['openMemoryTitle']?.toString();
+        }
+      } catch (_) {
+        // not JSON
+      }
+
       setState(() {
         _isTyping = false;
-        _messages.add(_Message(text: response, isBot: true));
+        _messages.add(
+          _Message(text: botText, isBot: true, openMemoryTitle: openTitle),
+        );
       });
     } catch (e) {
       setState(() {
@@ -182,6 +233,61 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
           ),
         );
       });
+    }
+  }
+
+  // Try to parse a quoted memory title from bot response and open it
+  Future<void> _tryOpenMemoryFromBotText(
+    String botText, {
+    String? openTitle,
+  }) async {
+    try {
+      // If the service provided an explicit title, use it first
+      String? title = openTitle;
+      if (title == null || title.isEmpty) {
+        final match = RegExp(r'"([^\"]+)"').firstMatch(botText);
+        if (match == null) return;
+        title = match.group(1)?.trim();
+      }
+      if (title == null || title.isEmpty) return;
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final memories = await _memoryService.getAllMemories(user.uid);
+      MemoryModel? memoryFound;
+      for (final m in memories) {
+        if (m.title.toLowerCase() == title.toLowerCase()) {
+          memoryFound = m;
+          break;
+        }
+      }
+      if (memoryFound == null) {
+        for (final m in memories) {
+          if (m.title.toLowerCase().contains(title.toLowerCase())) {
+            memoryFound = m;
+            break;
+          }
+        }
+      }
+
+      if (memoryFound == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Memory not found')));
+        return;
+      }
+
+      // Navigate to detail screen
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MemoryDetailScreen(memory: memoryFound!),
+          ),
+        );
+      }
+    } catch (e) {
+      // ignore errors
     }
   }
 
@@ -225,5 +331,6 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
 class _Message {
   final String text;
   final bool isBot;
-  _Message({required this.text, required this.isBot});
+  final String? openMemoryTitle;
+  _Message({required this.text, required this.isBot, this.openMemoryTitle});
 }

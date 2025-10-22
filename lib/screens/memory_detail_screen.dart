@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lifeprint/models/memory_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:just_audio/just_audio.dart';
@@ -69,56 +70,102 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.memory.title),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _editMemory,
-            icon: const Icon(Icons.edit),
-            tooltip: 'Edit Memory',
+      backgroundColor: Colors.transparent,
+      body: Container(
+        height: double.infinity,
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
           ),
-          IconButton(
-            onPressed: _deleteMemory,
-            icon: const Icon(Icons.delete),
-            tooltip: 'Delete Memory',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Media Preview
-                  _buildMediaPreview(),
-                  const SizedBox(height: 24),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Content scroll area, leave top padding for overlay buttons
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 64, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Media Preview
+                          _buildMediaPreview(),
+                          const SizedBox(height: 24),
 
-                  // Memory Details
-                  _buildMemoryDetails(),
-                  const SizedBox(height: 24),
+                          // Memory Details
+                          _buildMemoryDetails(),
+                          const SizedBox(height: 24),
 
-                  // Emotions
-                  if (widget.memory.emotions.isNotEmpty) ...[
-                    _buildEmotionsSection(),
-                    const SizedBox(height: 24),
+                          // Emotions
+                          if (widget.memory.emotions.isNotEmpty) ...[
+                            _buildEmotionsSection(),
+                            const SizedBox(height: 24),
+                          ],
+
+                          // Release Date Info
+                          if (widget.memory.releaseDate != null) ...[
+                            _buildReleaseDateSection(),
+                            const SizedBox(height: 24),
+                          ],
+
+                          // Metadata
+                          _buildMetadataSection(),
+                        ],
+                      ),
+                    ),
+
+              // Top-left back button and top-right actions
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 12,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back button
+                    Material(
+                      color: Colors.black.withOpacity(0.35),
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      ),
+                    ),
+
+                    // Edit & Delete
+                    Row(
+                      children: [
+                        Material(
+                          color: Colors.black.withOpacity(0.35),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            onPressed: _editMemory,
+                            icon: const Icon(Icons.edit, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Material(
+                          color: Colors.black.withOpacity(0.35),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            onPressed: _deleteMemory,
+                            icon: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-
-                  // Release Date Info
-                  if (widget.memory.releaseDate != null) ...[
-                    _buildReleaseDateSection(),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Metadata
-                  _buildMetadataSection(),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -278,197 +325,205 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
   }
 
   Widget _buildMemoryDetails() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Memory Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.memory.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  _getTypeIcon(widget.memory.type),
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  widget.memory.type.displayName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                ),
-              ],
-            ),
-            if (widget.memory.transcript != null) ...[
-              const SizedBox(height: 16),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.white),
+              const SizedBox(width: 8),
               Text(
-                'Transcript:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
+                'Memory Details',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.memory.transcript!,
-                style: TextStyle(color: Colors.grey[600]),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.memory.title,
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                _getTypeIcon(widget.memory.type),
+                size: 16,
+                color: Colors.white70,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.memory.type.displayName,
+                style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+          if (widget.memory.transcript != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Transcript:',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.memory.transcript!,
+              style: GoogleFonts.poppins(color: Colors.white70),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildEmotionsSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.mood, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Emotions',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
+    if (widget.memory.emotions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.mood, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Emotions',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.memory.emotions.map((emotion) {
-                return Chip(
-                  label: Text(emotion),
-                  backgroundColor: _getEmotionColor(emotion).withOpacity(0.2),
-                  labelStyle: TextStyle(
-                    color: _getEmotionColor(emotion),
-                    fontWeight: FontWeight.w500,
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.memory.emotions.map((emotion) {
+              final color = _getEmotionColor(emotion);
+              return Chip(
+                label: Text(emotion, style: GoogleFonts.poppins(color: color)),
+                backgroundColor: color.withOpacity(0.18),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildReleaseDateSection() {
+    if (widget.memory.releaseDate == null) return const SizedBox.shrink();
+
     final now = DateTime.now();
     final isLocked = widget.memory.releaseDate!.isAfter(now);
 
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  isLocked ? Icons.lock : Icons.lock_open,
-                  color: isLocked ? Colors.orange : Colors.green,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isLocked ? 'Locked Memory' : 'Released Memory',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isLocked ? Colors.orange : Colors.green,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Release Date: ${_formatDate(widget.memory.releaseDate!)}',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-            if (isLocked) ...[
-              const SizedBox(height: 8),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isLocked ? Icons.lock : Icons.lock_open,
+                color: isLocked ? Colors.orange : Colors.green,
+              ),
+              const SizedBox(width: 8),
               Text(
-                'This memory will be unlocked in ${_getTimeUntilRelease()}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.orange[700],
-                  fontStyle: FontStyle.italic,
+                isLocked ? 'Locked Memory' : 'Released Memory',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isLocked ? Colors.orange : Colors.green,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Release Date: ${_formatDate(widget.memory.releaseDate!)}',
+            style: GoogleFonts.poppins(color: Colors.white70),
+          ),
+          if (isLocked) ...[
+            const SizedBox(height: 8),
+            Text(
+              'This memory will be unlocked in ${_getTimeUntilRelease()}',
+              style: GoogleFonts.poppins(
+                color: Colors.orange[200],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildMetadataSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info, color: Colors.deepPurple),
-                const SizedBox(width: 8),
-                Text(
-                  'Metadata',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Metadata',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildMetadataRow('Created', _formatDate(widget.memory.createdAt)),
-            _buildMetadataRow('Memory ID', widget.memory.id),
-            _buildMetadataRow('Created By', widget.memory.createdBy),
-            _buildMetadataRow(
-              'Shared With',
-              '${widget.memory.linkedUserIds.length} user(s)',
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildMetadataRow('Created', _formatDate(widget.memory.createdAt)),
+          _buildMetadataRow('Memory ID', widget.memory.id),
+          _buildMetadataRow('Created By', widget.memory.createdBy),
+          _buildMetadataRow(
+            'Shared With',
+            '${widget.memory.linkedUserIds.length} user(s)',
+          ),
+        ],
       ),
     );
   }
@@ -483,14 +538,17 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
             width: 100,
             child: Text(
               '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
               ),
             ),
           ),
           Expanded(
-            child: Text(value, style: TextStyle(color: Colors.grey[600])),
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(color: Colors.white70),
+            ),
           ),
         ],
       ),

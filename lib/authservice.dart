@@ -12,12 +12,13 @@ Future<void> Registerss({
   required BuildContext context,
 }) async {
   try {
-    UserCredential userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(
-          email: EmailAddress,
-          password: Password,
-        );
-    User? user = userCredential.user;
+    // Create user account
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: EmailAddress,
+      password: Password,
+    );
+    // Retrieve created user from FirebaseAuth
+    User? user = FirebaseAuth.instance.currentUser;
 
     // Prepare user data
     Map<String, dynamic> userData = {
@@ -104,8 +105,11 @@ Future<void> loginPage({
   required BuildContext context,
 }) async {
   try {
-    UserCredential userCredential = await FirebaseAuth.instance
-        .signInWithEmailAndPassword(email: EmailAddress, password: Password);
+    // Sign in the user
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: EmailAddress,
+      password: Password,
+    );
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

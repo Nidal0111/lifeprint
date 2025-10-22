@@ -1,6 +1,4 @@
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -488,7 +486,7 @@ Thank you for using LifePrint!''',
                 child: CircleAvatar(
                   radius: 50,
                   backgroundImage: profileUrl != null
-                      ? NetworkImage(profileUrl!)
+                      ? NetworkImage(profileUrl)
                       : null,
                   child: profileUrl == null
                       ? const Icon(Icons.person, size: 50, color: Colors.white)

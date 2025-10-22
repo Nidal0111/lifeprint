@@ -263,7 +263,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
               ],
             ),
-          ), 
+          ),
           Row(
             children: [
               // Profile Button
@@ -572,17 +572,26 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildMemoriesList(String userId) {
     Query<Map<String, dynamic>> query = FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
         .collection('memories')
-        .orderBy('createdAt', descending: true);
+        .where('createdBy', isEqualTo: userId);
 
     if (_selectedFilter != 'All') {
       query = query.where('emotions', arrayContains: _selectedFilter);
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
+      stream: query.snapshots().map((snapshot) {
+        final docs = snapshot.docs;
+        // Sort docs by createdAt in memory
+        docs.sort((a, b) {
+          final aData = a.data();
+          final bData = b.data();
+          final aDate = DateTime.parse(aData['createdAt']);
+          final bDate = DateTime.parse(bData['createdAt']);
+          return bDate.compareTo(aDate); // descending order
+        });
+        return snapshot;
+      }),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

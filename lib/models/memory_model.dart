@@ -11,6 +11,9 @@ class MemoryModel {
   final DateTime createdAt;
   final String createdBy;
   final List<String> linkedUserIds;
+  // Transient flag: true when this memory is shared with the current user.
+  // This is not persisted to Firestore.
+  final bool isShared;
 
   MemoryModel({
     required this.id,
@@ -23,6 +26,7 @@ class MemoryModel {
     required this.createdAt,
     required this.createdBy,
     this.linkedUserIds = const [],
+    this.isShared = false,
   });
 
   // Convert MemoryModel to Map for Firestore
@@ -38,6 +42,7 @@ class MemoryModel {
       'createdAt': createdAt.toIso8601String(),
       'createdBy': createdBy,
       'linkedUserIds': linkedUserIds,
+      // Note: isShared is transient and intentionally not persisted
     };
   }
 
@@ -59,6 +64,8 @@ class MemoryModel {
       createdAt: DateTime.parse(map['createdAt']),
       createdBy: map['createdBy'] ?? '',
       linkedUserIds: List<String>.from(map['linkedUserIds'] ?? []),
+      // isShared is transient; default to false when created from Firestore
+      isShared: false,
     );
   }
 
@@ -80,6 +87,7 @@ class MemoryModel {
     DateTime? createdAt,
     String? createdBy,
     List<String>? linkedUserIds,
+    bool? isShared,
   }) {
     return MemoryModel(
       id: id ?? this.id,
@@ -92,6 +100,7 @@ class MemoryModel {
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       linkedUserIds: linkedUserIds ?? this.linkedUserIds,
+      isShared: isShared ?? this.isShared,
     );
   }
 
@@ -113,7 +122,8 @@ class MemoryModel {
         other.releaseDate == releaseDate &&
         other.createdAt == createdAt &&
         other.createdBy == createdBy &&
-        other.linkedUserIds == linkedUserIds;
+        other.linkedUserIds == linkedUserIds &&
+        other.isShared == isShared;
   }
 
   @override
@@ -127,7 +137,8 @@ class MemoryModel {
         releaseDate.hashCode ^
         createdAt.hashCode ^
         createdBy.hashCode ^
-        linkedUserIds.hashCode;
+        linkedUserIds.hashCode ^
+        isShared.hashCode;
   }
 }
 

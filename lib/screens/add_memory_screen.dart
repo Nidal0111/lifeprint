@@ -830,7 +830,8 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
           final userData = userDoc.data() as Map<String, dynamic>;
           final familyMember = FamilyMember(
             id: relationship.toUserId,
-            name: userData['name'] ?? 'Unknown',
+            // Firestore stores the user's full name under the 'Full Name' key
+            name: userData['Full Name'] ?? 'Unknown',
             relation: relationship.relation,
             linkedUserId: relationship.toUserId,
             profileImageUrl: userData['Profile Image URL'],
