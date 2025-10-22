@@ -1,7 +1,12 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:lifeprint/cloudinary_service.dart';
 
 class ProfileManagementScreen extends StatefulWidget {
   const ProfileManagementScreen({super.key});
@@ -25,6 +30,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  String? profileUrl;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isNewPasswordVisible = false;
@@ -295,6 +301,47 @@ Thank you for using LifePrint!''',
     );
   }
 
+  Future<void> _selectAndUploadImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) return;
+
+      String? url;
+
+      // Use web-optimized upload for web, normal upload for mobile
+      if (CloudinaryService.isWeb) {
+        url = await CloudinaryService.uploadImageWebOptimized(image);
+      } else {
+        url = await CloudinaryService.uploadImage(image);
+      }
+
+      if (url != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
+            .update({'Profile Image URL': url});
+
+        if (mounted) {
+          setState(() {
+            profileUrl = url; // update UI
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile image updated ✅')),
+          );
+        }
+      } else {
+        throw Exception('Cloudinary upload failed');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -436,15 +483,17 @@ Thank you for using LifePrint!''',
                 final data = snapshot.data!.data() as Map<String, dynamic>?;
                 profileUrl = data?['Profile Image URL'] as String?;
               }
-              return CircleAvatar(
-                radius: 50,
-                backgroundColor: Colors.white.withOpacity(0.2),
-                backgroundImage: profileUrl != null && profileUrl.isNotEmpty
-                    ? NetworkImage(profileUrl)
-                    : null,
-                child: (profileUrl == null || profileUrl.isEmpty)
-                    ? const Icon(Icons.person, size: 50, color: Colors.white)
-                    : null,
+              return GestureDetector(
+                onTap: _selectAndUploadImage,
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundImage: profileUrl != null
+                      ? NetworkImage(profileUrl!)
+                      : null,
+                  child: profileUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.white)
+                      : null,
+                ),
               );
             },
           ),

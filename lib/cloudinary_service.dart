@@ -216,7 +216,7 @@ class CloudinaryService {
   }
 
   /// Fallback upload method without transformations
-  static Future<String?> uploadImageSimple(XFile imageFile) async {
+  static Future<String?> uploadImageSimple(XFile imageFile, String name) async {
     try {
       print('Using fallback upload method...');
       List<int> imageBytes = await imageFile.readAsBytes();
