@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lifeprint/models/memory_model.dart';
+import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/screens/family_tree_screen.dart';
 import 'package:lifeprint/screens/memory_detail_screen.dart';
 import 'package:lifeprint/screens/modern_home_screen.dart';
 import 'package:lifeprint/screens/notes_calendar_screen.dart';
+import 'package:lifeprint/screens/add_memory_screen.dart';
 
 class AlbumsScreen extends StatefulWidget {
   const AlbumsScreen({super.key});
@@ -93,6 +94,8 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(context, _currentIndex),
+      floatingActionButton: _buildFloatingActionButton(context),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -113,7 +116,9 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
               label: Text(
                 emotion,
                 style: GoogleFonts.poppins(
-                  color: isSelected ? const Color(0xFF667eea) : const Color.fromARGB(255, 234, 126, 248),
+                  color: isSelected
+                      ? const Color(0xFF667eea)
+                      : const Color.fromARGB(255, 234, 126, 248),
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
@@ -233,8 +238,8 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
       return const Center(child: Text('Please log in to view your memories'));
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: _getMemoriesStream(user.uid),
+    return FutureBuilder<List<MemoryModel>>(
+      future: _getMemories(user.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -262,7 +267,9 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        final memories = snapshot.data ?? [];
+
+        if (memories.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -294,10 +301,6 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           );
         }
 
-        final memories = snapshot.data!.docs
-            .map((doc) => MemoryModel.fromDocument(doc))
-            .toList();
-
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: memories.length,
@@ -310,24 +313,23 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
     );
   }
 
-  Stream<QuerySnapshot> _getMemoriesStream(String userId) {
+  Future<List<MemoryModel>> _getMemories(String userId) async {
+    final memoryService = MemoryService();
+
     if (_selectedEmotion == 'All') {
-      // Return all memories ordered by createdAt
-      return FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('memories')
-          .orderBy('createdAt', descending: true)
-          .snapshots();
+      // Return all memories
+      return await memoryService.getAllMemories(userId);
     } else {
-      // Filter by emotion using array-contains
-      return FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('memories')
-          .where('emotions', arrayContains: _selectedEmotion.toLowerCase())
-          .orderBy('createdAt', descending: true)
-          .snapshots();
+      // Get all memories and filter by emotion
+      final allMemories = await memoryService.getAllMemories(userId);
+      return allMemories
+          .where(
+            (memory) => memory.emotions.any(
+              (emotion) =>
+                  emotion.toLowerCase() == _selectedEmotion.toLowerCase(),
+            ),
+          )
+          .toList();
     }
   }
 
@@ -816,5 +818,45 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
     } else {
       return 'less than a minute';
     }
+  }
+
+  Widget _buildFloatingActionButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const AddMemoryScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return ScaleTransition(
+                      scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeInOut,
+                        ),
+                      ),
+                      child: FadeTransition(opacity: animation, child: child),
+                    );
+                  },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          );
+        },
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+    );
   }
 }

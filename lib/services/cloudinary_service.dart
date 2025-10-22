@@ -10,16 +10,54 @@ class CloudinaryService {
       'https://api.cloudinary.com/v1_1/$cloudName/upload';
 
   /// Upload any file (image, audio, video) to Cloudinary
-  static Future<String?> uploadFile(File file) async {
+  static Future<String?> uploadFile(dynamic file) async {
     try {
       print('Starting Cloudinary upload...');
+      print('Platform: ${kIsWeb ? 'Web' : 'Mobile/Desktop'}');
 
-      // Read file bytes
-      List<int> fileBytes = await file.readAsBytes();
+      List<int> fileBytes;
+
+      if (kIsWeb) {
+        // Web platform - handle differently
+        if (file is File) {
+          // This shouldn't happen on web, but handle gracefully
+          print('Warning: File object detected on web platform');
+          return null;
+        } else {
+          // For web, we expect Uint8List or similar
+          fileBytes = file as List<int>;
+        }
+      } else {
+        // Mobile/Desktop platform
+        if (file is File) {
+          try {
+            fileBytes = await file.readAsBytes();
+          } catch (e) {
+            print('Error reading file bytes: $e');
+            if (e.toString().contains('_Namespace')) {
+              // Try alternative method
+              final stream = file.openRead();
+              fileBytes = await stream.expand((chunk) => chunk).toList();
+            } else {
+              rethrow;
+            }
+          }
+        } else {
+          fileBytes = file as List<int>;
+        }
+      }
+
       print('File size: ${fileBytes.length} bytes');
 
       // Determine file type and MIME type
-      String fileExtension = _getFileExtension(file.path);
+      String fileExtension;
+      if (kIsWeb) {
+        // For web, we need to determine file type differently
+        // Default to jpg for images, mp4 for videos, mp3 for audio
+        fileExtension = 'jpg'; // Default for web uploads
+      } else {
+        fileExtension = _getFileExtension(file.path);
+      }
       String mimeType = _getMimeType(fileExtension);
       String resourceType = _getResourceType(fileExtension);
 

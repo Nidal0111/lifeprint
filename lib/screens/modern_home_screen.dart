@@ -366,16 +366,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const ModernLoginScreen(),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: () => _showLogoutConfirmation(context),
                     child: const Icon(
                       Icons.logout,
                       color: Colors.white,
@@ -1244,6 +1235,64 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         },
         backgroundColor: Colors.black,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Logout',
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout? You will need to sign in again to access your memories.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.black54,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const ModernLoginScreen(),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Logout',
+              style: GoogleFonts.poppins(
+                color: Colors.red[600],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -5,8 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
+import 'package:lifeprint/services/memory_service.dart';
+import 'package:lifeprint/services/family_tree_service.dart';
 import 'package:lifeprint/models/memory_model.dart';
+import 'package:lifeprint/models/family_member_model.dart';
 
 class AddMemoryScreen extends StatefulWidget {
   const AddMemoryScreen({super.key});
@@ -42,9 +46,12 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     'Reflection',
     'Celebration',
   ];
-  final List<String> _linkedFamilyMemberNames = <String>[]; // UI-only
+  final List<String> _linkedFamilyMemberNames = <String>[];
+  final List<FamilyMember> _availableFamilyMembers = <FamilyMember>[];
+  final FamilyTreeService _familyService = FamilyTreeService();
 
-  File? _selectedFile;
+  dynamic _selectedFile; // Can be File (mobile) or Uint8List (web)
+  String? _selectedFileName;
   MemoryType _selectedType = MemoryType.photo;
   DateTime? _releaseDate;
   bool _isLoading = false;
@@ -78,6 +85,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
 
     _fadeController.forward();
     _slideController.forward();
+    _loadFamilyMembers();
   }
 
   @override
@@ -254,7 +262,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               child: Row(
                 children: [
                   Icon(
-                    _getFileIcon(_selectedFile!.path),
+                    _getFileIcon(_selectedFileName),
                     color: Colors.deepPurple,
                     size: 24,
                   ),
@@ -264,14 +272,16 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _selectedFile!.path.split('/').last,
+                          _selectedFileName ?? 'Selected file',
                           style: const TextStyle(fontWeight: FontWeight.w500),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          CloudinaryService.getFileSizeString(
-                            _selectedFile!.readAsBytesSync().length,
-                          ),
+                          kIsWeb
+                              ? 'Web file selected'
+                              : CloudinaryService.getFileSizeString(
+                                  _selectedFile!.readAsBytesSync().length,
+                                ),
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 12,
@@ -453,7 +463,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 label: Text(
                   type.displayName,
                   style: GoogleFonts.poppins(
-                    color: _selectedType == type ? Colors.black : const Color.fromARGB(255, 222, 136, 241),
+                    color: _selectedType == type
+                        ? Colors.black
+                        : const Color.fromARGB(255, 222, 136, 241),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -638,7 +650,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               Icon(Icons.tag, color: Colors.white),
               const SizedBox(width: 8),
               Text(
-                'Emotion Tags (UI only)',
+                'Emotion Tags',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -657,7 +669,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 label: Text(
                   emotion,
                   style: GoogleFonts.poppins(
-                    color: isSelected ?Colors.black : const Color.fromARGB(255, 222, 136, 241),
+                    color: isSelected
+                        ? Colors.black
+                        : const Color.fromARGB(255, 222, 136, 241),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -709,7 +723,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               Icon(Icons.family_restroom, color: Colors.white),
               const SizedBox(width: 8),
               Text(
-                'Link Family Members (UI only)',
+                'Link Family Members',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -723,14 +737,39 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _linkedFamilyMemberNames
-                  .map(
-                    (name) => Chip(
-                      label: Text(name),
-                      backgroundColor: Colors.white.withOpacity(0.9),
-                    ),
-                  )
-                  .toList(),
+              children: _linkedFamilyMemberNames.map((name) {
+                final member = _availableFamilyMembers.firstWhere(
+                  (m) => m.name == name,
+                  orElse: () => FamilyMember(
+                    id: '',
+                    name: name,
+                    relation: 'Unknown',
+                    linkedUserId: '',
+                    createdAt: DateTime.now(),
+                    createdBy: '',
+                  ),
+                );
+                return Chip(
+                  label: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name),
+                      Text(
+                        member.relation,
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.white.withOpacity(0.9),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () {
+                    setState(() {
+                      _linkedFamilyMemberNames.remove(name);
+                    });
+                  },
+                );
+              }).toList(),
             ),
           if (_linkedFamilyMemberNames.isNotEmpty) const SizedBox(height: 12),
           Container(
@@ -772,14 +811,54 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     );
   }
 
+  Future<void> _loadFamilyMembers() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final relationships = await _familyService.getUserRelationships(user.uid);
+      final familyMembers = <FamilyMember>[];
+
+      for (final relationship in relationships) {
+        // Get user data for the linked user
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(relationship.toUserId)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          final familyMember = FamilyMember(
+            id: relationship.toUserId,
+            name: userData['name'] ?? 'Unknown',
+            relation: relationship.relation,
+            linkedUserId: relationship.toUserId,
+            profileImageUrl: userData['Profile Image URL'],
+            createdAt: relationship.createdAt,
+            createdBy: relationship.fromUserId,
+          );
+          familyMembers.add(familyMember);
+        }
+      }
+
+      setState(() {
+        _availableFamilyMembers.clear();
+        _availableFamilyMembers.addAll(familyMembers);
+      });
+    } catch (e) {
+      print('Error loading family members: $e');
+    }
+  }
+
   void _openLinkFamilySheet() {
-    final demoMembers = <String>[
-      'Alice Johnson',
-      'Bob Smith',
-      'Charlie Lee',
-      'Diana Patel',
-      'Evan Chen',
-    ];
+    if (_availableFamilyMembers.isEmpty) {
+      _showSnackBar(
+        'No family members found. Add family members first.',
+        isError: true,
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -808,19 +887,20 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                     Flexible(
                       child: ListView.builder(
                         shrinkWrap: true,
-                        itemCount: demoMembers.length,
+                        itemCount: _availableFamilyMembers.length,
                         itemBuilder: (context, index) {
-                          final name = demoMembers[index];
-                          final selected = tempSelection.contains(name);
+                          final member = _availableFamilyMembers[index];
+                          final selected = tempSelection.contains(member.name);
                           return CheckboxListTile(
-                            title: Text(name),
+                            title: Text(member.name),
+                            subtitle: Text(member.relation),
                             value: selected,
                             onChanged: (val) {
                               setModalState(() {
                                 if (val == true) {
-                                  tempSelection.add(name);
+                                  tempSelection.add(member.name);
                                 } else {
-                                  tempSelection.remove(name);
+                                  tempSelection.remove(member.name);
                                 }
                               });
                             },
@@ -921,7 +1001,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     );
   }
 
-  IconData _getFileIcon(String filePath) {
+  IconData _getFileIcon(String? filePath) {
+    if (filePath == null) return Icons.insert_drive_file;
+
     String extension = filePath.split('.').last.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension)) {
       return Icons.image;
@@ -949,19 +1031,37 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
 
   Future<void> _selectImage() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
+      if (kIsWeb) {
+        // Web platform - use file picker
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
 
-      if (image != null) {
-        setState(() {
-          _selectedFile = File(image.path);
-          _selectedType = MemoryType.photo;
-        });
+        if (result != null && result.files.single.bytes != null) {
+          setState(() {
+            _selectedFile = result.files.single.bytes!;
+            _selectedFileName = result.files.single.name;
+            _selectedType = MemoryType.photo;
+          });
+        }
+      } else {
+        // Mobile/Desktop platform
+        final ImagePicker picker = ImagePicker();
+        final XFile? image = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1920,
+          maxHeight: 1080,
+          imageQuality: 85,
+        );
+
+        if (image != null) {
+          setState(() {
+            _selectedFile = File(image.path);
+            _selectedFileName = image.name;
+            _selectedType = MemoryType.photo;
+          });
+        }
       }
     } catch (e) {
       _showSnackBar('Error selecting image: $e', isError: true);
@@ -970,17 +1070,35 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
 
   Future<void> _selectVideo() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? video = await picker.pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 10),
-      );
+      if (kIsWeb) {
+        // Web platform - use file picker
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
 
-      if (video != null) {
-        setState(() {
-          _selectedFile = File(video.path);
-          _selectedType = MemoryType.video;
-        });
+        if (result != null && result.files.single.bytes != null) {
+          setState(() {
+            _selectedFile = result.files.single.bytes!;
+            _selectedFileName = result.files.single.name;
+            _selectedType = MemoryType.video;
+          });
+        }
+      } else {
+        // Mobile/Desktop platform
+        final ImagePicker picker = ImagePicker();
+        final XFile? video = await picker.pickVideo(
+          source: ImageSource.gallery,
+          maxDuration: const Duration(minutes: 10),
+        );
+
+        if (video != null) {
+          setState(() {
+            _selectedFile = File(video.path);
+            _selectedFileName = video.name;
+            _selectedType = MemoryType.video;
+          });
+        }
       }
     } catch (e) {
       _showSnackBar('Error selecting video: $e', isError: true);
@@ -994,11 +1112,26 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _selectedType = MemoryType.audio;
-        });
+      if (result != null) {
+        if (kIsWeb) {
+          // Web platform
+          if (result.files.single.bytes != null) {
+            setState(() {
+              _selectedFile = result.files.single.bytes!;
+              _selectedFileName = result.files.single.name;
+              _selectedType = MemoryType.audio;
+            });
+          }
+        } else {
+          // Mobile/Desktop platform
+          if (result.files.single.path != null) {
+            setState(() {
+              _selectedFile = File(result.files.single.path!);
+              _selectedFileName = result.files.single.name;
+              _selectedType = MemoryType.audio;
+            });
+          }
+        }
       }
     } catch (e) {
       _showSnackBar('Error selecting audio: $e', isError: true);
@@ -1054,6 +1187,19 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         throw Exception('User not authenticated');
       }
 
+      // Get linked family member IDs
+      List<String> linkedUserIds = [user.uid]; // Always include creator
+
+      // Add selected family members
+      for (final familyMemberName in _linkedFamilyMemberNames) {
+        final familyMember = _availableFamilyMembers.firstWhere(
+          (member) => member.name == familyMemberName,
+          orElse: () =>
+              throw Exception('Family member not found: $familyMemberName'),
+        );
+        linkedUserIds.add(familyMember.linkedUserId);
+      }
+
       // Create memory model
       MemoryModel memory = MemoryModel(
         id: '', // Will be generated by Firestore
@@ -1064,17 +1210,20 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         releaseDate: _releaseDate,
         createdAt: DateTime.now(),
         createdBy: user.uid,
-        linkedUserIds: [user.uid], // Initially only linked to creator
+        linkedUserIds:
+            linkedUserIds, // Include creator and selected family members
       );
 
-      // Save to Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('memories')
-          .add(memory.toMap());
+      // Save to Firestore using MemoryService
+      MemoryService memoryService = MemoryService();
+      await memoryService.addMemory(memory);
 
-      _showSnackBar('Memory uploaded successfully!', isError: false);
+      String successMessage = 'Memory uploaded successfully!';
+      if (_linkedFamilyMemberNames.isNotEmpty) {
+        successMessage +=
+            ' Linked to ${_linkedFamilyMemberNames.length} family member(s).';
+      }
+      _showSnackBar(successMessage, isError: false);
 
       // Navigate back to home
       if (mounted) {

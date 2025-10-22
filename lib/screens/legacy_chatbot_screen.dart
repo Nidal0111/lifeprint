@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lifeprint/services/chatbot_service.dart';
 
 class LegacyChatbotScreen extends StatefulWidget {
   const LegacyChatbotScreen({super.key});
@@ -10,9 +11,15 @@ class LegacyChatbotScreen extends StatefulWidget {
 
 class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
   final List<_Message> _messages = <_Message>[
-    _Message(text: 'Hi! I am your legacy chatbot (UI only).', isBot: true),
+    _Message(
+      text:
+          'Hi! I am your LifePrint assistant. I can help you explore your memories, family connections, and answer questions about your digital legacy. What would you like to know?',
+      isBot: true,
+    ),
   ];
   final TextEditingController _controller = TextEditingController();
+  final ChatbotService _chatbotService = ChatbotService();
+  bool _isTyping = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +68,12 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  itemCount: _messages.length,
+                  itemCount: _messages.length + (_isTyping ? 1 : 0),
                   itemBuilder: (context, index) {
+                    if (index == _messages.length && _isTyping) {
+                      return _buildTypingIndicator();
+                    }
+
                     final msg = _messages[index];
                     final align = msg.isBot
                         ? Alignment.centerLeft
@@ -144,14 +155,70 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
     );
   }
 
-  void _send() {
+  void _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
     setState(() {
       _messages.add(_Message(text: text, isBot: false));
-      _messages.add(_Message(text: '…thinking (placeholder)', isBot: true));
+      _isTyping = true;
       _controller.clear();
     });
+
+    try {
+      final response = await _chatbotService.processMessage(text);
+
+      setState(() {
+        _isTyping = false;
+        _messages.add(_Message(text: response, isBot: true));
+      });
+    } catch (e) {
+      setState(() {
+        _isTyping = false;
+        _messages.add(
+          _Message(
+            text: 'Sorry, I encountered an error. Please try again.',
+            isBot: true,
+          ),
+        );
+      });
+    }
+  }
+
+  Widget _buildTypingIndicator() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[600]!),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Thinking...',
+              style: GoogleFonts.poppins(
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
