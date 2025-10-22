@@ -263,8 +263,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
               ],
             ),
-          ),
-          // Right: Profile and Logout Buttons
+          ), 
           Row(
             children: [
               // Profile Button
