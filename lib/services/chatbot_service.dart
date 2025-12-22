@@ -1,12 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lifeprint/models/memory_model.dart';
+import 'package:lifeprint/models/event_model.dart';
+import 'package:lifeprint/models/family_member_model.dart';
 import 'package:lifeprint/services/memory_service.dart';
+import 'package:lifeprint/services/event_service.dart';
+import 'package:lifeprint/services/family_tree_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class ChatbotService {
   final MemoryService _memoryService = MemoryService();
+  final EventService _eventService = EventService();
+  final FamilyTreeService _familyTreeService = FamilyTreeService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String? get currentUserId => _auth.currentUser?.uid;
@@ -41,10 +47,11 @@ class ChatbotService {
       return "I can help you with:\n\n"
           "📷 **Memories**: Ask about your photos, videos, audio, or text memories\n"
           "👨‍👩‍👧‍👦 **Family**: Questions about your family members and relationships\n"
-          "📊 **Stats**: Get statistics about your memories and family\n"
+          "� **Events**: Ask about your events, appointments, and schedule\n"
+          "�📊 **Stats**: Get statistics about your memories and family\n"
           "🔍 **Search**: Find specific memories or family members\n"
           "💡 **Suggestions**: Get recommendations for organizing your data\n\n"
-          "Try asking: 'Show me my recent memories' or 'Who are my family members?'";
+          "Try asking: 'Show me my recent memories', 'Who are my family members?', or 'What events do I have today?'";
     }
 
     // Memory-related queries
@@ -85,6 +92,19 @@ class ChatbotService {
       'total',
     ])) {
       return await _handleStatsQuery(message);
+    }
+
+    // Event-related queries
+    if (_containsAny(message, [
+      'event',
+      'events',
+      'appointment',
+      'meeting',
+      'birthday',
+      'calendar',
+      'schedule',
+    ])) {
+      return await _handleEventQuery(message);
     }
 
     // Search queries
@@ -337,11 +357,91 @@ If nothing found -> reply kindly:
   /// Handle family-related queries
   Future<String> _handleFamilyQuery(String message) async {
     try {
-      // This would need to be implemented in FamilyTreeService
-      // For now, return a placeholder response
-      return "I can see you're asking about family members, but I need to implement the family data retrieval. "
-          "Your family connections are important for your digital legacy! "
-          "Try asking about your memories instead, or say 'help' for more options.";
+      final userId = currentUserId!;
+      final familyMembers = await _familyTreeService.getFamilyTree(userId);
+      final relationships = await _familyTreeService.getFamilyRelationships(userId);
+
+      if (familyMembers.isEmpty && relationships.isEmpty) {
+        return "You haven't added any family members yet! Building your family tree is an important part of your digital legacy. Try adding some family members through the Family Tree section.";
+      }
+
+      // Handle specific relationship queries
+      if (_containsAny(message, ['who are my', 'list my', 'show my'])) {
+        String response = "👨‍👩‍👧‍👦 **Your Family Members** (${familyMembers.length - 1} connected):\n\n";
+
+        // Get relationships for the user
+        final userRelationships = await _familyTreeService.getUserRelationships(userId);
+
+        if (userRelationships.isEmpty) {
+          response += "You haven't connected with any family members yet. Start building your family tree!";
+        } else {
+          for (int i = 0; i < userRelationships.length; i++) {
+            final relationship = userRelationships[i];
+            final relatedUser = familyMembers[relationship.toUserId];
+
+            if (relatedUser != null) {
+              final relationDisplay = RelationshipType.getDisplayName(relationship.relation);
+              response += "${i + 1}. **${relatedUser.name}** (${relationDisplay})\n";
+            }
+          }
+        }
+
+        return response;
+      }
+
+      // Handle specific relationship types
+      final relationTypes = {
+        'parent': ['parent', 'parents', 'mother', 'father', 'mom', 'dad'],
+        'child': ['child', 'children', 'son', 'daughter', 'kids'],
+        'spouse': ['spouse', 'husband', 'wife', 'partner'],
+        'sibling': ['sibling', 'brother', 'sister', 'siblings'],
+      };
+
+      for (final entry in relationTypes.entries) {
+        if (_containsAny(message, entry.value)) {
+          final userRelationships = await _familyTreeService.getUserRelationships(userId);
+          final matchingRelations = userRelationships
+              .where((r) => r.relation == entry.key)
+              .toList();
+
+          if (matchingRelations.isEmpty) {
+            return "You don't have any ${entry.key}s added to your family tree yet.";
+          }
+
+          String response = "👪 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s**:\n\n";
+          for (int i = 0; i < matchingRelations.length; i++) {
+            final relationship = matchingRelations[i];
+            final relatedUser = familyMembers[relationship.toUserId];
+
+            if (relatedUser != null) {
+              response += "${i + 1}. **${relatedUser.name}**\n";
+            }
+          }
+
+          return response;
+        }
+      }
+
+      // General family info
+      final userRelationships = await _familyTreeService.getUserRelationships(userId);
+      final relationCounts = <String, int>{};
+
+      for (final relationship in userRelationships) {
+        relationCounts[relationship.relation] = (relationCounts[relationship.relation] ?? 0) + 1;
+      }
+
+      String response = "👨‍👩‍👧‍👦 **Your Family Tree Overview**\n\n";
+      response += "📊 **Total Connections**: ${userRelationships.length}\n\n";
+
+      if (relationCounts.isNotEmpty) {
+        response += "🔗 **Relationships**:\n";
+        for (final entry in relationCounts.entries) {
+          final displayName = RelationshipType.getDisplayName(entry.key);
+          response += "   • $displayName: ${entry.value}\n";
+        }
+      }
+
+      return response;
     } catch (e) {
       return "Sorry, I couldn't access your family information right now. Please try again later.";
     }
@@ -473,6 +573,130 @@ If nothing found -> reply kindly:
       return response;
     } catch (e) {
       return "Sorry, I couldn't search your memories right now. Please try again later.";
+    }
+  }
+
+  /// Handle event-related queries
+  Future<String> _handleEventQuery(String message) async {
+    try {
+      final events = await _eventService.getUserEvents();
+
+      if (events.isEmpty) {
+        return "You don't have any events scheduled yet! Try adding events through the Notes & Calendar section to stay organized.";
+      }
+
+      // Today's events
+      if (_containsAny(message, ['today', 'todays', 'this day'])) {
+        final todaysEvents = await _eventService.getTodaysEvents();
+
+        if (todaysEvents.isEmpty) {
+          return "You don't have any events scheduled for today. Enjoy your day!";
+        }
+
+        String response = "📅 **Today's Events** (${todaysEvents.length}):\n\n";
+        for (int i = 0; i < todaysEvents.length; i++) {
+          final event = todaysEvents[i];
+          response += "${i + 1}. **${event.title}**\n";
+          response += "   ${event.typeIcon} ${event.type}\n";
+          if (event.time != null) {
+            response += "   🕐 ${event.formattedTime}\n";
+          }
+          response += "   📝 ${event.description}\n\n";
+        }
+
+        return response;
+      }
+
+      // Upcoming events
+      if (_containsAny(message, ['upcoming', 'next', 'coming', 'future'])) {
+        final upcomingEvents = await _eventService.getUpcomingEvents();
+
+        if (upcomingEvents.isEmpty) {
+          return "You don't have any upcoming events in the next 7 days.";
+        }
+
+        String response = "📅 **Upcoming Events** (${upcomingEvents.length}):\n\n";
+        for (int i = 0; i < (upcomingEvents.length > 5 ? 5 : upcomingEvents.length); i++) {
+          final event = upcomingEvents[i];
+          final daysUntil = event.date.difference(DateTime.now()).inDays;
+
+          response += "${i + 1}. **${event.title}**\n";
+          response += "   📅 ${event.formattedDate}\n";
+          if (event.time != null) {
+            response += "   🕐 ${event.formattedTime}\n";
+          }
+          response += "   ${event.typeIcon} ${event.type}\n";
+          response += "   📝 ${event.description}\n\n";
+        }
+
+        if (upcomingEvents.length > 5) {
+          response += "... and ${upcomingEvents.length - 5} more events.";
+        }
+
+        return response;
+      }
+
+      // Event types
+      final eventTypes = {
+        'birthday': ['birthday', 'birthdays'],
+        'meeting': ['meeting', 'meetings'],
+        'appointment': ['appointment', 'appointments'],
+      };
+
+      for (final entry in eventTypes.entries) {
+        if (_containsAny(message, entry.value)) {
+          final typeEvents = await _eventService.getEventsByType(entry.key);
+
+          if (typeEvents.isEmpty) {
+            return "You don't have any ${entry.key} events scheduled.";
+          }
+
+          String response = "📅 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s** (${typeEvents.length}):\n\n";
+          for (int i = 0; i < (typeEvents.length > 5 ? 5 : typeEvents.length); i++) {
+            final event = typeEvents[i];
+            response += "${i + 1}. **${event.title}**\n";
+            response += "   📅 ${event.formattedDate}\n";
+            if (event.time != null) {
+              response += "   🕐 ${event.formattedTime}\n";
+            }
+            response += "   📝 ${event.description}\n\n";
+          }
+
+          if (typeEvents.length > 5) {
+            response += "... and ${typeEvents.length - 5} more ${entry.key}s.";
+          }
+
+          return response;
+        }
+      }
+
+      // General events info
+      final totalEvents = events.length;
+      final upcomingCount = (await _eventService.getUpcomingEvents()).length;
+      final todayCount = (await _eventService.getTodaysEvents()).length;
+
+      // Count events by type
+      final typeCounts = <String, int>{};
+      for (final event in events) {
+        typeCounts[event.type] = (typeCounts[event.type] ?? 0) + 1;
+      }
+
+      String response = "📅 **Your Events Overview**\n\n";
+      response += "📊 **Total Events**: $totalEvents\n";
+      response += "📅 **Today**: $todayCount\n";
+      response += "🔜 **Upcoming (7 days)**: $upcomingCount\n\n";
+
+      if (typeCounts.isNotEmpty) {
+        response += "📋 **Event Types**:\n";
+        for (final entry in typeCounts.entries) {
+          final displayType = entry.key[0].toUpperCase() + entry.key.substring(1);
+          response += "   • $displayType: ${entry.value}\n";
+        }
+      }
+
+      return response;
+    } catch (e) {
+      return "Sorry, I couldn't access your events right now. Please try again later.";
     }
   }
 

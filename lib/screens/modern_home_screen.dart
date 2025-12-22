@@ -14,6 +14,7 @@ import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/services/event_service.dart';
 import 'package:lifeprint/screens/speech_to_text_screen.dart';
 import 'package:lifeprint/screens/legacy_chatbot_screen.dart';
+import 'package:lifeprint/screens/enhanced_chatbot_screen.dart';
 
 class ModernHomeScreen extends StatefulWidget {
   final String? selectedUserId;
@@ -164,11 +165,11 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             child: _aiCard(
               context,
               icon: Icons.smart_toy,
-              title: 'Legacy Chatbot',
+              title: 'AI Assistant',
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const LegacyChatbotScreen(),
+                    builder: (_) => const EnhancedChatbotScreen(),
                   ),
                 );
               },
