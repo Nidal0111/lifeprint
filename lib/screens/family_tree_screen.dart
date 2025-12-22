@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lifeprint/models/family_member_model.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
 import 'package:lifeprint/screens/modern_home_screen.dart';
 import 'package:lifeprint/screens/add_family_member_screen.dart';
+import 'package:lifeprint/screens/albums_screen.dart';
+import 'package:lifeprint/screens/notes_calendar_screen.dart';
 import 'package:graphview/graphview.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
@@ -21,6 +24,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   Map<String, FamilyMember> _familyMembers = {};
   List<Relationship> _relationships = [];
   Graph? _graph;
+  int _currentIndex = 2; // Family tab
 
   @override
   void initState() {
@@ -431,6 +435,154 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+          stops: [0.0, 0.5, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+
+          // Navigate to different screens based on index
+          switch (index) {
+            case 0:
+              // Home
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const ModernHomeScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(-1, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeInOut,
+                                ),
+                              ),
+                          child: child,
+                        );
+                      },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+              );
+              break;
+            case 1:
+              // Memories - navigate to albums screen
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const AlbumsScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(-1, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeInOut,
+                                ),
+                              ),
+                          child: child,
+                        );
+                      },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+              );
+              break;
+            case 2:
+              // Family - already here
+              break;
+            case 3:
+              // Notes - navigate to notes calendar screen
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const NotesCalendarScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(1, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeInOut,
+                                ),
+                              ),
+                          child: child,
+                        );
+                      },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+              );
+              break;
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withOpacity(0.6),
+        selectedLabelStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.photo_library_outlined),
+            activeIcon: Icon(Icons.photo_library),
+            label: 'Memories',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.family_restroom_outlined),
+            activeIcon: Icon(Icons.family_restroom),
+            label: 'Family',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_note_outlined),
+            activeIcon: Icon(Icons.event_note),
+            label: 'Notes',
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -590,6 +742,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
             ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 }
