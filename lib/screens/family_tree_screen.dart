@@ -105,33 +105,49 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   // Removed unused bottom nav builder (handled by respective screens)
 
   Widget _buildFamilyTreeInfo() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    final cardPadding = isSmallScreen ? 12.0 : 16.0;
+    final titleFontSize = isSmallScreen ? 18.0 : 20.0;
+    final bodyFontSize = isSmallScreen ? 13.0 : 14.0;
+    final countFontSize = isSmallScreen ? 14.0 : 16.0;
+    
     return Card(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 12 : 16,
+        vertical: isSmallScreen ? 8 : 12,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Family Tree',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isSmallScreen ? 6 : 8),
             Text(
               'Tap on any family member to view their memories. Use the + button to add new family members.',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: bodyFontSize, color: Colors.grey[600]),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isSmallScreen ? 12 : 16),
             Row(
               children: [
-                Icon(Icons.people, color: Colors.blue[600]),
-                const SizedBox(width: 8),
-                Text(
-                  '${_familyMembers.length} family members',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.blue[600],
+                Icon(
+                  Icons.people,
+                  color: Colors.blue[600],
+                  size: isSmallScreen ? 20 : 24,
+                ),
+                SizedBox(width: isSmallScreen ? 6 : 8),
+                Flexible(
+                  child: Text(
+                    '${_familyMembers.length} family members',
+                    style: TextStyle(
+                      fontSize: countFontSize,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue[600],
+                    ),
                   ),
                 ),
               ],
@@ -143,12 +159,19 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   Widget _buildFamilyTree() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    final isMediumScreen = screenWidth >= 600 && screenWidth < 1200;
+    
     if (_graph == null || _graph!.nodeCount == 0) {
-      return const Center(
-        child: Text(
-          'No family members found. Add some family members to see the tree.',
-          style: TextStyle(fontSize: 16),
-          textAlign: TextAlign.center,
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+          child: Text(
+            'No family members found. Add some family members to see the tree.',
+            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -156,44 +179,61 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     if (_graph!.nodeCount == 1) {
       // Fallback UI for a single node to avoid GraphView layout issues
       final member = _familyMembers.values.first;
+      final avatarRadius = isSmallScreen ? 24.0 : 28.0;
+      final nameFontSize = isSmallScreen ? 13.0 : 14.0;
+      final relationFontSize = isSmallScreen ? 11.0 : 12.0;
+      
       return Center(
         child: GestureDetector(
           onTap: () => _openUserMemories(member.linkedUserId),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+            constraints: BoxConstraints(
+              maxWidth: isSmallScreen ? 140 : 160,
+            ),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               border: Border.all(color: Colors.blue.shade200),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircleAvatar(
-                  radius: 28,
+                  radius: avatarRadius,
                   backgroundImage: member.profileImageUrl != null
                       ? NetworkImage(member.profileImageUrl!)
                       : null,
                   child: member.profileImageUrl == null
                       ? Text(
                           member.name[0].toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isSmallScreen ? 18 : 20,
+                          ),
                         )
                       : null,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isSmallScreen ? 6 : 8),
                 Text(
                   member.name,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: nameFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   member.relation,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: relationFontSize,
+                    color: Colors.grey.shade600,
+                  ),
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -206,16 +246,29 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     if (kIsWeb) {
       final members = _familyMembers.values.toList(growable: false);
       return Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final crossAxisCount = (constraints.maxWidth ~/ 180).clamp(1, 6);
+            int crossAxisCount;
+            if (isSmallScreen) {
+              crossAxisCount = (constraints.maxWidth ~/ 140).clamp(2, 4);
+            } else if (isMediumScreen) {
+              crossAxisCount = (constraints.maxWidth ~/ 160).clamp(3, 5);
+            } else {
+              crossAxisCount = (constraints.maxWidth ~/ 180).clamp(4, 6);
+            }
+            
+            final avatarRadius = isSmallScreen ? 20.0 : (isMediumScreen ? 22.0 : 24.0);
+            final nameFontSize = isSmallScreen ? 11.0 : 12.0;
+            final relationFontSize = isSmallScreen ? 9.0 : 10.0;
+            final cardPadding = isSmallScreen ? 6.0 : 8.0;
+            
             return GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.2,
+                crossAxisSpacing: isSmallScreen ? 8 : 12,
+                mainAxisSpacing: isSmallScreen ? 8 : 12,
+                childAspectRatio: isSmallScreen ? 1.1 : 1.2,
               ),
               itemCount: members.length,
               itemBuilder: (context, index) {
@@ -223,36 +276,37 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 return GestureDetector(
                   onTap: () => _openUserMemories(member.linkedUserId),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(cardPadding),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       border: Border.all(color: Colors.blue.shade200),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircleAvatar(
-                          radius: 24,
+                          radius: avatarRadius,
                           backgroundImage: member.profileImageUrl != null
                               ? NetworkImage(member.profileImageUrl!)
                               : null,
                           child: member.profileImageUrl == null
                               ? Text(
                                   member.name[0].toUpperCase(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isSmallScreen ? 14 : 16,
                                   ),
                                 )
                               : null,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: isSmallScreen ? 6 : 8),
                         Text(
                           member.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontSize: nameFontSize,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -262,7 +316,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: relationFontSize,
                             color: Colors.grey.shade600,
                           ),
                           textAlign: TextAlign.center,
@@ -287,12 +341,20 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ? constraints.maxHeight
             : 400;
 
+        final nodeSeparation = isSmallScreen ? 24.0 : 32.0;
+        final levelSeparation = isSmallScreen ? 44.0 : 56.0;
+        final boundaryMargin = isSmallScreen ? 16.0 : 24.0;
+        final avatarRadius = isSmallScreen ? 16.0 : 20.0;
+        final cardPadding = isSmallScreen ? 6.0 : 8.0;
+        final nameFontSize = isSmallScreen ? 11.0 : 12.0;
+        final relationFontSize = isSmallScreen ? 9.0 : 10.0;
+
         return SizedBox(
           width: width,
           height: height,
           child: InteractiveViewer(
             constrained: true,
-            boundaryMargin: const EdgeInsets.all(24),
+            boundaryMargin: EdgeInsets.all(boundaryMargin),
             minScale: 0.5,
             maxScale: 3.0,
             child: GraphView(
@@ -300,8 +362,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               algorithm: SugiyamaAlgorithm(
                 SugiyamaConfiguration()
                   ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM
-                  ..nodeSeparation = 32
-                  ..levelSeparation = 56,
+                  ..nodeSeparation = nodeSeparation.toInt()
+                  ..levelSeparation = levelSeparation.toInt(),
               ),
               builder: (node) {
                 final String keyStr =
@@ -312,45 +374,50 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 return GestureDetector(
                   onTap: () => _openUserMemories(member.linkedUserId),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(cardPadding),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       border: Border.all(color: Colors.blue.shade200),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 8),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircleAvatar(
-                          radius: 20,
+                          radius: avatarRadius,
                           backgroundImage: member.profileImageUrl != null
                               ? NetworkImage(member.profileImageUrl!)
                               : null,
                           child: member.profileImageUrl == null
                               ? Text(
                                   member.name[0].toUpperCase(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isSmallScreen ? 12 : 14,
                                   ),
                                 )
                               : null,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: isSmallScreen ? 3 : 4),
                         Text(
                           member.name,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontSize: nameFontSize,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           member.relation,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: relationFontSize,
                             color: Colors.grey.shade600,
                           ),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -366,6 +433,19 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    final isMediumScreen = screenWidth >= 600 && screenWidth < 1200;
+    
+    // Responsive padding and sizing
+    final appBarHorizontalPadding = isSmallScreen ? 8.0 : 16.0;
+    final appBarVerticalPadding = isSmallScreen ? 8.0 : 12.0;
+    final titleFontSize = isSmallScreen ? 20.0 : 24.0;
+    final iconSize = isSmallScreen ? 22.0 : 24.0;
+    final containerMargin = isSmallScreen ? 8.0 : (isMediumScreen ? 12.0 : 16.0);
+    final fabIconSize = isSmallScreen ? 20.0 : 24.0;
+    final fabLabelSize = isSmallScreen ? 13.0 : 14.0;
+    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -381,15 +461,21 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             children: [
               // Custom App Bar
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                padding: EdgeInsets.symmetric(
+                  horizontal: appBarHorizontalPadding,
+                  vertical: appBarVerticalPadding,
                 ),
                 child: Row(
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: iconSize,
+                      ),
+                      padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
+                      constraints: const BoxConstraints(),
                     ),
                     Expanded(
                       child: Text(
@@ -399,13 +485,20 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
+                              fontSize: titleFontSize,
                             ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      icon: Icon(
+                        Icons.refresh,
+                        color: Colors.white,
+                        size: iconSize,
+                      ),
                       onPressed: _loadFamilyTree,
                       tooltip: 'Refresh Family Tree',
+                      padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
@@ -416,16 +509,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                     : Column(
                         children: [
                           _buildFamilyTreeInfo(),
-                          const SizedBox(height: 16),
+                          SizedBox(height: isSmallScreen ? 8 : 16),
                           Expanded(
                             child: Container(
-                              margin: const EdgeInsets.all(16),
+                              margin: EdgeInsets.all(containerMargin),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.06),
                                 border: Border.all(
                                   color: Colors.white.withOpacity(0.12),
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 12),
                               ),
                               child: _buildFamilyTree(),
                             ),
@@ -437,34 +530,66 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context)
-              .push(
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const AddFamilyMemberScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                        return SlideTransition(
-                          position: animation.drive(
-                            Tween(
-                              begin: const Offset(0.0, 1.0),
-                              end: Offset.zero,
-                            ).chain(CurveTween(curve: Curves.easeInOut)),
-                          ),
-                          child: child,
-                        );
-                      },
-                ),
-              )
-              .then((_) => _loadFamilyTree());
-        },
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Member'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: isSmallScreen
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context)
+                    .push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const AddFamilyMemberScreen(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              return SlideTransition(
+                                position: animation.drive(
+                                  Tween(
+                                    begin: const Offset(0.0, 1.0),
+                                    end: Offset.zero,
+                                  ).chain(CurveTween(curve: Curves.easeInOut)),
+                                ),
+                                child: child,
+                              );
+                            },
+                      ),
+                    )
+                    .then((_) => _loadFamilyTree());
+              },
+              child: Icon(Icons.person_add, size: fabIconSize),
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              tooltip: 'Add Member',
+            )
+          : FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.of(context)
+                    .push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const AddFamilyMemberScreen(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              return SlideTransition(
+                                position: animation.drive(
+                                  Tween(
+                                    begin: const Offset(0.0, 1.0),
+                                    end: Offset.zero,
+                                  ).chain(CurveTween(curve: Curves.easeInOut)),
+                                ),
+                                child: child,
+                              );
+                            },
+                      ),
+                    )
+                    .then((_) => _loadFamilyTree());
+              },
+              icon: Icon(Icons.person_add, size: fabIconSize),
+              label: Text(
+                'Add Member',
+                style: TextStyle(fontSize: fabLabelSize),
+              ),
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+            ),
     );
   }
 }
