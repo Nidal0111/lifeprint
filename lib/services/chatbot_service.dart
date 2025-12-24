@@ -25,7 +25,7 @@ class ChatbotService {
 
     final message = userMessage.toLowerCase().trim();
 
-    // Greeting responses
+    // Greeting responses with contextual suggestions
     if (_containsAny(message, [
       'hello',
       'hi',
@@ -34,7 +34,7 @@ class ChatbotService {
       'good afternoon',
       'good evening',
     ])) {
-      return "Hi again! Feel free to ask me about your memories, family connections, or say 'help' to see what I can do.";
+      return await _generatePersonalizedGreeting();
     }
 
     // Help responses
@@ -136,51 +136,107 @@ class ChatbotService {
     return result;
   }
 
-  /// Serialize memories and call the Gemini model to get a personalized reply.
+  /// Serialize memories, family data, and events to call the Gemini model to get a personalized reply.
   Future<String> _queryWithGemini(String userQuery) async {
     try {
       final memories = await _memoryService.getAllMemories(currentUserId!);
+      final familyMembers = await _familyTreeService.getFamilyTree(currentUserId!);
+      final relationships = await _familyTreeService.getUserRelationships(currentUserId!);
+      final events = await _eventService.getUserEvents();
 
-      // Limit number of memories sent to the model
-      final limit = 20;
-      final recent = memories.take(limit).toList();
+      // Limit number of items sent to the model
+      final memoryLimit = 15;
+      final eventLimit = 10;
+      final familyLimit = 10;
 
-      final serializedLines = recent
+      final recentMemories = memories.take(memoryLimit).toList();
+      final recentEvents = events.take(eventLimit).toList();
+
+      // Serialize memories
+      final memoryLines = recentMemories
           .map((m) {
             return jsonEncode({
+              'type': 'memory',
               'id': m.id,
               'title': m.title,
-              'type': m.type.name,
+              'memoryType': m.type.name,
               'emotions': m.emotions,
               'createdAt': m.createdAt.toIso8601String(),
+              'transcript': m.transcript?.substring(0, 200), // Limit transcript length
             });
           })
           .join('\n');
 
+      // Serialize family relationships
+      final familyLines = relationships.take(familyLimit)
+          .map((r) {
+            final relatedUser = familyMembers[r.toUserId];
+            return jsonEncode({
+              'type': 'family',
+              'relation': r.relation,
+              'name': relatedUser?.name ?? 'Unknown',
+              'createdAt': r.createdAt.toIso8601String(),
+            });
+          })
+          .join('\n');
+
+      // Serialize events
+      final eventLines = recentEvents
+          .map((e) {
+            return jsonEncode({
+              'type': 'event',
+              'id': e.id,
+              'title': e.title,
+              'eventType': e.type,
+              'date': e.date.toIso8601String(),
+              'time': e.time?.toIso8601String(),
+              'description': e.description,
+            });
+          })
+          .join('\n');
+
+      // Combine all data with clear sections
+      final allData = [
+        '=== MEMORIES ===',
+        memoryLines,
+        '=== FAMILY RELATIONSHIPS ===',
+        familyLines,
+        '=== EVENTS ===',
+        eventLines,
+      ].join('\n');
+
       // Truncate to conservative prompt size
-      final maxPromptLength = 12000;
-      var memoryBlock = serializedLines;
-      if (memoryBlock.length > maxPromptLength) {
-        memoryBlock = memoryBlock.substring(0, maxPromptLength - 100) + '\n...';
+      final maxPromptLength = 15000;
+      var dataBlock = allData;
+      if (dataBlock.length > maxPromptLength) {
+        dataBlock = dataBlock.substring(0, maxPromptLength - 100) + '\n...';
       }
 
       final prompt =
-          '''You are a human-like memory assistant.
-Here are the user's saved memories (JSON lines):
+          '''You are a comprehensive life assistant with access to the user's complete digital legacy.
 
-$memoryBlock
+Here is the user's stored data (organized by type):
+
+$dataBlock
 
 User asked: "${_escape(userQuery)}"
 
-Search deeply in their life memories and answer personally.
+Search through ALL their data - memories, family relationships, and events - to provide a comprehensive, personalized answer.
 
-If memory found -> reply like an old friend with summary:
-- Mention memory title
-- Say emotion (joyful, nostalgic)
-- Offer help: "Want me to open that memory?"
+Key guidelines:
+- Reference specific memories, family members, or events by name when relevant
+- Connect information across different data types (e.g., "You have a memory about your family reunion and an upcoming birthday event")
+- Be conversational and personal, like a knowledgeable friend
+- If suggesting to open a memory, use exact titles in quotes for easy parsing
+- Mention emotions, relationships, and important dates naturally
+- If no direct match, suggest related information from their data
 
-If nothing found -> reply kindly:
-"I didn’t find anything like that — should I search differently?"''';
+Examples of good responses:
+- For memories: "I remember your 'Summer Vacation 2023' - it was so joyful. Want me to open that memory?"
+- For events: "You have 'Mom's Birthday Dinner' scheduled for December 25th"
+- For family: "Your sister Sarah has been part of your family tree since 2020"
+
+Always provide value by connecting their stored information to their question.''';
 
       // Read endpoint and key from dart-define environment variables
       final geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
@@ -517,10 +573,13 @@ If nothing found -> reply kindly:
     }
   }
 
-  /// Handle search queries
+  /// Handle search queries with cross-collection support
   Future<String> _handleSearchQuery(String message) async {
     try {
       final memories = await _memoryService.getAllMemories(currentUserId!);
+      final familyMembers = await _familyTreeService.getFamilyTree(currentUserId!);
+      final userRelationships = await _familyTreeService.getUserRelationships(currentUserId!);
+      final events = await _eventService.getUserEvents();
 
       if (memories.isEmpty) {
         return "You don't have any memories to search through yet. Start adding memories to build your digital legacy!";
@@ -538,7 +597,73 @@ If nothing found -> reply kindly:
         return "What would you like me to search for? Try something like 'find memories about family' or 'search for happy moments'.";
       }
 
-      // Search in titles and emotions
+      // Check for cross-collection queries
+      final isFamilyQuery = _containsAny(message, ['family', 'relative', 'parent', 'child', 'spouse', 'sibling', 'brother', 'sister', 'mother', 'father', 'mom', 'dad']);
+      final isEventQuery = _containsAny(message, ['event', 'events', 'birthday', 'meeting', 'appointment', 'calendar']);
+
+      // Cross-collection search: memories about family members
+      if (isFamilyQuery && userRelationships.isNotEmpty) {
+        final familyNames = userRelationships
+            .map((r) => familyMembers[r.toUserId]?.name.toLowerCase())
+            .where((name) => name != null)
+            .cast<String>()
+            .toList();
+
+        final familyMemories = memories.where((memory) {
+          final titleMatch = familyNames.any(
+            (name) => memory.title.toLowerCase().contains(name),
+          );
+          final transcriptMatch = memory.transcript != null && familyNames.any(
+            (name) => memory.transcript!.toLowerCase().contains(name),
+          );
+          return titleMatch || transcriptMatch;
+        }).toList();
+
+        if (familyMemories.isNotEmpty) {
+          String response = "👨‍👩‍👧‍👦 **Memories About Your Family** (${familyMemories.length} found):\n\n";
+          for (int i = 0; i < (familyMemories.length > 5 ? 5 : familyMemories.length); i++) {
+            final memory = familyMemories[i];
+            response +=
+                "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+            if (memory.emotions.isNotEmpty) {
+              response += "   Emotions: ${memory.emotions.join(', ')}\n";
+            }
+            response += "\n";
+          }
+          return response;
+        }
+      }
+
+      // Cross-collection search: memories about events
+      if (isEventQuery && events.isNotEmpty) {
+        final eventTitles = events.map((e) => e.title.toLowerCase()).toList();
+
+        final eventMemories = memories.where((memory) {
+          final titleMatch = eventTitles.any(
+            (title) => memory.title.toLowerCase().contains(title),
+          );
+          final transcriptMatch = memory.transcript != null && eventTitles.any(
+            (title) => memory.transcript!.toLowerCase().contains(title),
+          );
+          return titleMatch || transcriptMatch;
+        }).toList();
+
+        if (eventMemories.isNotEmpty) {
+          String response = "📅 **Memories Related to Your Events** (${eventMemories.length} found):\n\n";
+          for (int i = 0; i < (eventMemories.length > 5 ? 5 : eventMemories.length); i++) {
+            final memory = eventMemories[i];
+            response +=
+                "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+            if (memory.emotions.isNotEmpty) {
+              response += "   Emotions: ${memory.emotions.join(', ')}\n";
+            }
+            response += "\n";
+          }
+          return response;
+        }
+      }
+
+      // Standard memory search in titles, emotions, and transcripts
       final results = memories.where((memory) {
         final titleMatch = searchTerms.any(
           (term) => memory.title.toLowerCase().contains(term.toLowerCase()),
@@ -548,11 +673,24 @@ If nothing found -> reply kindly:
             (emotion) => emotion.toLowerCase().contains(term.toLowerCase()),
           ),
         );
-        return titleMatch || emotionMatch;
+        final transcriptMatch = memory.transcript != null && searchTerms.any(
+          (term) => memory.transcript!.toLowerCase().contains(term.toLowerCase()),
+        );
+        return titleMatch || emotionMatch || transcriptMatch;
       }).toList();
 
       if (results.isEmpty) {
-        return "I couldn't find any memories matching '${searchTerms.join(' ')}'. Try different keywords or check your spelling.";
+        // Suggest cross-collection alternatives
+        String suggestion = "I couldn't find any memories matching '${searchTerms.join(' ')}'.";
+
+        if (userRelationships.isNotEmpty) {
+          suggestion += " Try searching for family-related memories.";
+        }
+        if (events.isNotEmpty) {
+          suggestion += " Or look for event-related memories.";
+        }
+
+        return suggestion;
       }
 
       String response = "🔍 **Search Results** (${results.length} found):\n\n";
@@ -697,6 +835,60 @@ If nothing found -> reply kindly:
       return response;
     } catch (e) {
       return "Sorry, I couldn't access your events right now. Please try again later.";
+    }
+  }
+
+  /// Generate a personalized greeting based on user's stored data
+  Future<String> _generatePersonalizedGreeting() async {
+    try {
+      final memories = await _memoryService.getAllMemories(currentUserId!);
+      final events = await _eventService.getUserEvents();
+      final todaysEvents = await _eventService.getTodaysEvents();
+      final userRelationships = await _familyTreeService.getUserRelationships(currentUserId!);
+
+      String greeting = "Hi there! 👋";
+
+      // Add today's events reminder
+      if (todaysEvents.isNotEmpty) {
+        greeting += "\n\n📅 **Today you have ${todaysEvents.length} event${todaysEvents.length > 1 ? 's' : ''}**";
+        if (todaysEvents.length <= 2) {
+          for (final event in todaysEvents) {
+            greeting += "\n   • ${event.title}${event.time != null ? ' at ${event.formattedTime}' : ''}";
+          }
+        }
+      }
+
+      // Add data summary and suggestions
+      final hasMemories = memories.isNotEmpty;
+      final hasFamily = userRelationships.isNotEmpty;
+      final hasEvents = events.isNotEmpty;
+
+      if (hasMemories || hasFamily || hasEvents) {
+        greeting += "\n\n💭 **Quick suggestions based on your data:**";
+
+        if (hasMemories && memories.length > 0) {
+          final recentMemory = memories.first;
+          greeting += "\n   • Check out your recent memory: \"${recentMemory.title}\"";
+        }
+
+        if (hasFamily && userRelationships.length > 0) {
+          greeting += "\n   • You have ${userRelationships.length} family connection${userRelationships.length > 1 ? 's' : ''}";
+        }
+
+        if (hasEvents && todaysEvents.isEmpty) {
+          final upcomingEvents = await _eventService.getUpcomingEvents();
+          if (upcomingEvents.isNotEmpty && upcomingEvents.length <= 2) {
+            greeting += "\n   • Your next event: \"${upcomingEvents.first.title}\" on ${upcomingEvents.first.formattedDate}";
+          }
+        }
+      }
+
+      greeting += "\n\nFeel free to ask me about your memories, family, or events! What would you like to explore today?";
+
+      return greeting;
+    } catch (e) {
+      // Fallback greeting if data loading fails
+      return "Hi there! 👋 I'm your LifePrint AI assistant. Feel free to ask me about your memories, family connections, or say 'help' to see what I can do.";
     }
   }
 

@@ -38,7 +38,7 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
       upperBound: 1.1,
     )..repeat(reverse: true);
 
-    // Add initial greeting
+    // Add initial greeting (will be replaced when speech is initialized)
     _messages.add(
       _Message(
         text:
@@ -309,17 +309,15 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
             _speechText = result.recognizedWords;
           });
 
-          // Auto-send if confidence is high and speech is final
-          if (result.finalResult && result.confidence > 0.7) {
-            _controller.text = result.recognizedWords;
-            _send();
-            setState(() => _speechText = '');
+          // Auto-send if confidence is high enough and speech is final
+          if (result.finalResult && result.confidence > 0.6 && _speechText.trim().isNotEmpty) {
+            _handleSpeechResult(_speechText.trim());
           }
         },
         listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 5),
+        pauseFor: const Duration(seconds: 3),
         partialResults: true,
-        localeId: 'en_US', // You can make this configurable
+        localeId: 'en_US',
         cancelOnError: true,
         listenMode: stt.ListenMode.confirmation,
       );
@@ -327,6 +325,29 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
       setState(() => _isListening = true);
       _pulseController.repeat(reverse: true);
     }
+  }
+
+  void _handleSpeechResult(String speechText) async {
+    if (speechText.isEmpty) return;
+
+    // Stop listening first
+    await _speech.stop();
+    setState(() {
+      _isListening = false;
+      _speechText = '';
+    });
+    _pulseController.stop();
+
+    // Set the controller text and send
+    setState(() {
+      _controller.text = speechText;
+    });
+
+    // Small delay to ensure UI updates
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Send the message
+    _send();
   }
 
   bool _isTyping = false;
