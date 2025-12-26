@@ -102,10 +102,11 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
                           const SizedBox(height: 24),
 
                           // Emotions
-                          if (widget.memory.emotions.isNotEmpty) ...[
-                            _buildEmotionsSection(),
-                            const SizedBox(height: 24),
-                          ],
+                         if (widget.memory.emotion.isNotEmpty) ...[
+  _buildEmotionsSection(),
+  const SizedBox(height: 24),
+],
+
 
                           // Release Date Info
                           if (widget.memory.releaseDate != null) ...[
@@ -392,50 +393,58 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
       ),
     );
   }
+Widget _buildEmotionsSection() {
+  final emotion = widget.memory.emotion;
+  if (emotion.isEmpty) return const SizedBox.shrink();
 
-  Widget _buildEmotionsSection() {
-    if (widget.memory.emotions.isEmpty) return const SizedBox.shrink();
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.06),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.white.withOpacity(0.12)),
+    ),
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.mood, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Emotions',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-      ),
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.mood, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                'Emotions',
+        // ✅ SINGLE CHIP (STRING SAFE)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Chip(
+              label: Text(
+                emotion,
                 style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: _getEmotionColor(emotion),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.memory.emotions.map((emotion) {
-              final color = _getEmotionColor(emotion);
-              return Chip(
-                label: Text(emotion, style: GoogleFonts.poppins(color: color)),
-                backgroundColor: color.withOpacity(0.18),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
+              backgroundColor:
+                  _getEmotionColor(emotion).withOpacity(0.18),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
 
   Widget _buildReleaseDateSection() {
     if (widget.memory.releaseDate == null) return const SizedBox.shrink();

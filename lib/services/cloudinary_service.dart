@@ -1,123 +1,71 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class CloudinaryService {
   static const String cloudName = 'dpfhr81ee';
   static const String uploadPreset = 'lifeprint';
-  static const String baseUrl =
-      'https://api.cloudinary.com/v1_1/$cloudName/upload';
 
-  /// Upload any file (image, audio, video) to Cloudinary
-  static Future<String?> uploadFile(dynamic file) async {
-    try {
-      print('Starting Cloudinary upload...');
-      print('Platform: ${kIsWeb ? 'Web' : 'Mobile/Desktop'}');
+  static const String imageUploadUrl =
+      'https://api.cloudinary.com/v1_1/$cloudName/image/upload';
 
-      List<int> fileBytes;
+  // ===========================================================================
+  // ✅ UNIVERSAL IMAGE UPLOAD (WEB + MOBILE)
+  // ===========================================================================
 
-      if (kIsWeb) {
-        // Web platform - handle differently
-        if (file is File) {
-          // This shouldn't happen on web, but handle gracefully
-          print('Warning: File object detected on web platform');
-          return null;
-        } else {
-          // For web, we expect Uint8List or similar
-          fileBytes = file as List<int>;
-        }
-      } else {
-        // Mobile/Desktop platform
-        if (file is File) {
-          try {
-            fileBytes = await file.readAsBytes();
-          } catch (e) {
-            print('Error reading file bytes: $e');
-            if (e.toString().contains('_Namespace')) {
-              // Try alternative method
-              final stream = file.openRead();
-              fileBytes = await stream.expand((chunk) => chunk).toList();
-            } else {
-              rethrow;
-            }
-          }
-        } else {
-          fileBytes = file as List<int>;
-        }
-      }
+  static Future<String> uploadImage({
+    File? file, // Android / iOS
+    Uint8List? bytes, // Web
+    String? fileName,
+  }) async {
+    if (file == null && bytes == null) {
+      throw Exception('No file or bytes provided for upload');
+    }
 
-      print('File size: ${fileBytes.length} bytes');
+    final uri = Uri.parse(imageUploadUrl);
+    final request = http.MultipartRequest('POST', uri);
 
-      // Determine file type and MIME type
-      String fileExtension;
-      if (kIsWeb) {
-        // For web, we need to determine file type differently
-        // Default to jpg for images, mp4 for videos, mp3 for audio
-        fileExtension = 'jpg'; // Default for web uploads
-      } else {
-        fileExtension = _getFileExtension(file.path);
-      }
-      String mimeType = _getMimeType(fileExtension);
-      String resourceType = _getResourceType(fileExtension);
+    request.fields['upload_preset'] = uploadPreset;
 
-      print('File extension: $fileExtension');
-      print('MIME type: $mimeType');
-      print('Resource type: $resourceType');
+    // ✅ IMPORTANT: public_id WITHOUT extension
+    request.fields['public_id'] =
+        'lifeprint_image/img_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Generate unique filename
-      String fileName =
-          '${_getFilePrefix(resourceType)}_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
-
-      // Prepare the request
-      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
-      request.fields['upload_preset'] = uploadPreset;
-      request.fields['folder'] = 'lifeprint_$resourceType';
-      request.fields['public_id'] = fileName;
-      request.fields['resource_type'] = resourceType;
-
-      // Add the file with proper MIME type
+    if (file != null) {
+      // 📱 Mobile
       request.files.add(
-        http.MultipartFile.fromBytes('file', fileBytes, filename: fileName),
+        await http.MultipartFile.fromPath('file', file.path),
       );
+    } else {
+      // 🌐 Web
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes!,
+          filename: fileName ?? 'image.jpg',
+        ),
+      );
+    }
 
-      print('Sending request to Cloudinary...');
-      print('Upload URL: $baseUrl');
-      print('Cloud name: $cloudName');
-      print('Upload preset: $uploadPreset');
-      print('Resource type: $resourceType');
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data = jsonDecode(responseBody);
 
-      var response = await request.send();
-      print('Response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        var responseData = await response.stream.bytesToString();
-        print('Upload successful! Response: $responseData');
-
-        var jsonResponse = json.decode(responseData);
-        String? secureUrl = jsonResponse['secure_url'] as String?;
-
-        if (secureUrl != null) {
-          print('Secure URL: $secureUrl');
-          return secureUrl;
-        } else {
-          print('No secure URL in response');
-          return null;
-        }
-      } else {
-        print('Upload failed with status: ${response.statusCode}');
-        var errorData = await response.stream.bytesToString();
-        print('Error response: $errorData');
-        return null;
-      }
-    } catch (e) {
-      print('Error uploading file to Cloudinary: $e');
-      print('Error type: ${e.runtimeType}');
-      return null;
+    if (response.statusCode == 200) {
+      return data['secure_url']; // ✅ always use secure_url
+    } else {
+      throw Exception(
+        'Cloudinary upload failed: ${data['error'] ?? response.statusCode}',
+      );
     }
   }
 
-  /// Upload file with specific transformations (for images)
+  // ===========================================================================
+  // IMAGE UPLOAD WITH TRANSFORMATIONS (MOBILE ONLY)
+  // ===========================================================================
+
   static Future<String?> uploadFileWithTransformations(
     File file, {
     int? width,
@@ -128,30 +76,22 @@ class CloudinaryService {
     String? format,
   }) async {
     try {
-      print('Starting Cloudinary upload with transformations...');
+      final extension = _getFileExtension(file.path);
+      final resourceType = _getResourceType(extension);
 
-      List<int> fileBytes = await file.readAsBytes();
-      String fileExtension = _getFileExtension(file.path);
-      String resourceType = _getResourceType(fileExtension);
-
-      // Only apply transformations for images
       if (resourceType != 'image') {
-        print(
-          'Transformations only supported for images, using regular upload',
-        );
-        return await uploadFile(file);
+        // fallback to normal upload
+        return await uploadImage(file: file);
       }
 
-      String fileName =
-          'image_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+      final uri = Uri.parse(imageUploadUrl);
+      final request = http.MultipartRequest('POST', uri);
 
-      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
       request.fields['upload_preset'] = uploadPreset;
-      request.fields['folder'] = 'lifeprint_images';
-      request.fields['public_id'] = fileName;
       request.fields['resource_type'] = 'image';
+      request.fields['public_id'] =
+          'lifeprint_image/img_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Add transformation parameters
       if (width != null) request.fields['width'] = width.toString();
       if (height != null) request.fields['height'] = height.toString();
       if (crop != null) request.fields['crop'] = crop;
@@ -159,247 +99,73 @@ class CloudinaryService {
       if (quality != null) request.fields['quality'] = quality;
       if (format != null) request.fields['format'] = format;
 
-      print(
-        'Transformations: width=$width, height=$height, crop=$crop, gravity=$gravity, quality=$quality, format=$format',
-      );
-
       request.files.add(
-        http.MultipartFile.fromBytes('file', fileBytes, filename: fileName),
+        await http.MultipartFile.fromPath('file', file.path),
       );
 
-      var response = await request.send();
-      print('Response status: ${response.statusCode}');
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
+      final data = jsonDecode(body);
 
       if (response.statusCode == 200) {
-        var responseData = await response.stream.bytesToString();
-        print('Upload successful! Response: $responseData');
-        var jsonResponse = json.decode(responseData);
-        return jsonResponse['secure_url'] as String?;
-      } else {
-        print('Upload failed with status: ${response.statusCode}');
-        var errorData = await response.stream.bytesToString();
-        print('Error response: $errorData');
-        return null;
+        return data['secure_url'];
       }
+      return null;
     } catch (e) {
-      print('Error uploading file with transformations: $e');
+      debugPrint('Cloudinary transform upload error: $e');
       return null;
     }
   }
 
-  /// Get file extension from file path
-  static String _getFileExtension(String filePath) {
-    if (filePath.contains('.')) {
-      return filePath.split('.').last.toLowerCase();
-    }
-    return 'bin';
-  }
+  // ===========================================================================
+  // HELPERS (UNCHANGED, CLEAN)
+  // ===========================================================================
 
-  /// Get MIME type based on file extension
-  static String _getMimeType(String extension) {
-    switch (extension) {
-      // Image types
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'bmp':
-        return 'image/bmp';
-      case 'svg':
-        return 'image/svg+xml';
-      case 'tiff':
-      case 'tif':
-        return 'image/tiff';
-
-      // Video types
-      case 'mp4':
-        return 'video/mp4';
-      case 'avi':
-        return 'video/x-msvideo';
-      case 'mov':
-        return 'video/quicktime';
-      case 'wmv':
-        return 'video/x-ms-wmv';
-      case 'flv':
-        return 'video/x-flv';
-      case 'webm':
-        return 'video/webm';
-      case 'mkv':
-        return 'video/x-matroska';
-      case '3gp':
-        return 'video/3gpp';
-      case 'm4v':
-        return 'video/x-m4v';
-
-      // Audio types
-      case 'mp3':
-        return 'audio/mpeg';
-      case 'wav':
-        return 'audio/wav';
-      case 'aac':
-        return 'audio/aac';
-      case 'ogg':
-        return 'audio/ogg';
-      case 'flac':
-        return 'audio/flac';
-      case 'm4a':
-        return 'audio/mp4';
-      case 'wma':
-        return 'audio/x-ms-wma';
-      case 'aiff':
-        return 'audio/aiff';
-
-      default:
-        return 'application/octet-stream';
-    }
-  }
-
-  /// Get Cloudinary resource type based on file extension
-  static String _getResourceType(String extension) {
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'webp':
-      case 'bmp':
-      case 'svg':
-      case 'tiff':
-      case 'tif':
-        return 'image';
-
-      case 'mp4':
-      case 'avi':
-      case 'mov':
-      case 'wmv':
-      case 'flv':
-      case 'webm':
-      case 'mkv':
-      case '3gp':
-      case 'm4v':
-        return 'video';
-
-      case 'mp3':
-      case 'wav':
-      case 'aac':
-      case 'ogg':
-      case 'flac':
-      case 'm4a':
-      case 'wma':
-      case 'aiff':
-        return 'video'; // Cloudinary treats audio as video resource type
-
-      default:
-        return 'raw';
-    }
-  }
-
-  /// Get file prefix based on resource type
-  static String _getFilePrefix(String resourceType) {
-    switch (resourceType) {
-      case 'image':
-        return 'img';
-      case 'video':
-        return 'vid';
-      case 'raw':
-        return 'file';
-      default:
-        return 'file';
-    }
-  }
-
-  /// Get optimized URL with transformations
-  static String getOptimizedUrl(
-    String originalUrl, {
-    int? width,
-    int? height,
-    String? crop,
-    String? quality,
-    String? format,
-  }) {
-    if (originalUrl.contains('cloudinary.com')) {
-      // Extract the public ID from the URL
-      Uri uri = Uri.parse(originalUrl);
-      String path = uri.path;
-      String publicId = path.split('/').last.split('.').first;
-
-      // Build transformation string
-      String transformations = '';
-      if (width != null) transformations += 'w_$width,';
-      if (height != null) transformations += 'h_$height,';
-      if (crop != null) transformations += 'c_$crop,';
-      if (quality != null) transformations += 'q_$quality,';
-      if (format != null) transformations += 'f_$format,';
-
-      // Remove trailing comma
-      if (transformations.endsWith(',')) {
-        transformations = transformations.substring(
-          0,
-          transformations.length - 1,
-        );
-      }
-
-      // Return optimized URL with transformations
-      return 'https://res.cloudinary.com/$cloudName/image/upload/$transformations/$publicId';
-    }
-    return originalUrl;
-  }
-
-  /// Test Cloudinary connection
-  static Future<bool> testConnection() async {
-    try {
-      print('Testing Cloudinary connection...');
-      print('Cloud name: $cloudName');
-      print('Upload preset: $uploadPreset');
-      print('Base URL: $baseUrl');
-
-      var response = await http.get(
-        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/upload_presets'),
-      );
-
-      print('Connection test response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('Cloudinary connection successful!');
-        return true;
-      } else {
-        print('Cloudinary connection failed: ${response.body}');
-        return false;
-      }
-    } catch (e) {
-      print('Cloudinary connection test failed: $e');
-      return false;
-    }
-  }
-
-  /// Check if running on web platform
   static bool get isWeb => kIsWeb;
 
-  /// Get file size in human readable format
-  static String getFileSizeString(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  static String _getFileExtension(String path) {
+    return path.contains('.') ? path.split('.').last.toLowerCase() : 'bin';
   }
 
-  /// Validate file before upload
-  static Map<String, dynamic> validateFile(File file) {
-    String extension = _getFileExtension(file.path);
-    String resourceType = _getResourceType(extension);
-    String mimeType = _getMimeType(extension);
+  static String _getResourceType(String extension) {
+    const imageExt = [
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'bmp',
+      'svg',
+      'tiff',
+      'tif'
+    ];
+    const videoExt = [
+      'mp4',
+      'avi',
+      'mov',
+      'wmv',
+      'flv',
+      'webm',
+      'mkv',
+      '3gp',
+      'm4v'
+    ];
+    const audioExt = ['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma', 'aiff'];
 
-    return {
-      'isValid': resourceType != 'raw',
-      'extension': extension,
-      'resourceType': resourceType,
-      'mimeType': mimeType,
-      'supported': ['image', 'video'].contains(resourceType),
-    };
+    if (imageExt.contains(extension)) return 'image';
+    if (videoExt.contains(extension)) return 'video';
+    if (audioExt.contains(extension)) return 'video'; // Cloudinary rule
+    return 'raw';
+  }
+
+  static String getFileSizeString(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

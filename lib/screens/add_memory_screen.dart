@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
 import 'package:lifeprint/services/cloudinary_service.dart';
 import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
@@ -24,33 +27,12 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _releaseDateController = TextEditingController();
-  final Set<String> _selectedEmotions = <String>{};
-  final List<String> _allEmotions = const [
-    'Joy',
-    'Nostalgia',
-    'Sadness',
-    'Excitement',
-    'Love',
-    'Gratitude',
-    'Peace',
-    'Adventure',
-    'Achievement',
-    'Family',
-    'Friendship',
-    'Romance',
-    'Hope',
-    'Pride',
-    'Wonder',
-    'Calm',
-    'Energy',
-    'Reflection',
-    'Celebration',
-  ];
-  final List<String> _linkedFamilyMemberNames = <String>[];
-  final List<FamilyMember> _availableFamilyMembers = <FamilyMember>[];
+
+  final List<String> _linkedFamilyMemberNames = [];
+  final List<FamilyMember> _availableFamilyMembers = [];
   final FamilyTreeService _familyService = FamilyTreeService();
 
-  dynamic _selectedFile; // Can be File (mobile) or Uint8List (web)
+  dynamic _selectedFile;
   String? _selectedFileName;
   MemoryType _selectedType = MemoryType.photo;
   DateTime? _releaseDate;
@@ -65,23 +47,21 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   @override
   void initState() {
     super.initState();
+
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
       vsync: this,
+      duration: const Duration(milliseconds: 1000),
     );
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
       vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_fadeController);
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(_slideController);
 
     _fadeController.forward();
     _slideController.forward();
@@ -95,6 +75,90 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     _titleController.dispose();
     _releaseDateController.dispose();
     super.dispose();
+  }
+
+  // ---------------- EMOTION API ----------------
+
+  Future<String> _detectEmotion(String imageUrl) async {
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:5000/predict'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'image_url': imageUrl}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Emotion detection failed');
+    }
+
+    final data = jsonDecode(response.body);
+    return data['emotion'].toString().toLowerCase();
+  }
+
+  // ---------------- UPLOAD MEMORY ----------------
+
+  Future<void> _uploadMemory() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedFile == null) {
+      _showSnackBar('Please select a file', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _isUploading = true;
+    });
+
+    try {
+      final cloudinaryUrl = await CloudinaryService.uploadImage(
+        file: _selectedFile, // Androi
+      );
+      if (cloudinaryUrl == null) {
+        throw Exception('Cloudinary upload failed');
+      }
+
+      final detectedEmotion = await _detectEmotion(cloudinaryUrl);
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final linkedUserIds = <String>[user.uid];
+      for (final name in _linkedFamilyMemberNames) {
+        final member = _availableFamilyMembers.firstWhere(
+          (m) => m.name == name,
+        );
+        linkedUserIds.add(member.linkedUserId);
+      }
+
+      final memory = MemoryModel(
+        id: '',
+        title: _titleController.text.trim(),
+        type: _selectedType,
+        cloudinaryUrl: cloudinaryUrl,
+        emotion: detectedEmotion, // ✅ AUTO
+        releaseDate: _releaseDate,
+        createdAt: DateTime.now(),
+        createdBy: user.uid,
+        linkedUserIds: linkedUserIds,
+      );
+
+      await MemoryService().addMemory(memory);
+
+      _showSnackBar(
+        'Memory saved (${detectedEmotion.toUpperCase()})',
+        isError: false,
+      );
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isUploading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -144,8 +208,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                             const SizedBox(height: 24),
 
                             // Emotion Tags (UI-only)
-                            _buildEmotionTagsSection(),
-                            const SizedBox(height: 24),
 
                             // Link Family Members (UI-only)
                             _buildLinkFamilyMembersSection(),
@@ -627,79 +689,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     );
   }
 
-  Widget _buildEmotionTagsSection() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.tag, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                'Emotion Tags',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _allEmotions.map((emotion) {
-              final isSelected = _selectedEmotions.contains(emotion);
-              return FilterChip(
-                label: Text(
-                  emotion,
-                  style: GoogleFonts.poppins(
-                    color: isSelected
-                        ? Colors.black
-                        : const Color.fromARGB(255, 222, 136, 241),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedEmotions.add(emotion);
-                    } else {
-                      _selectedEmotions.remove(emotion);
-                    }
-                  });
-                },
-                selectedColor: Colors.white,
-                backgroundColor: Colors.white.withOpacity(0.1),
-                checkmarkColor: Colors.black,
-                side: BorderSide(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildLinkFamilyMembersSection() {
     return Container(
       padding: const EdgeInsets.all(20.0),
@@ -974,7 +963,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                       Text(
                         _isUploading ? 'Uploading...' : 'Saving...',
                         style: GoogleFonts.poppins(
-                          color: Colors.white,
+                          color: const Color.fromRGBO(255, 255, 255, 1),
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1153,92 +1142,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         _releaseDateController.text =
             '${picked.day}/${picked.month}/${picked.year}';
       });
-    }
-  }
-
-  Future<void> _uploadMemory() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedFile == null) {
-      _showSnackBar('Please select a file', isError: true);
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _isUploading = true;
-    });
-
-    try {
-      // Upload file to Cloudinary
-      String? cloudinaryUrl = await CloudinaryService.uploadFile(
-        _selectedFile!,
-      );
-
-      if (cloudinaryUrl == null) {
-        throw Exception('Failed to upload file to Cloudinary');
-      }
-
-      setState(() {
-        _isUploading = false;
-      });
-
-      // Get current user
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Get linked family member IDs
-      List<String> linkedUserIds = [user.uid]; // Always include creator
-
-      // Add selected family members
-      for (final familyMemberName in _linkedFamilyMemberNames) {
-        final familyMember = _availableFamilyMembers.firstWhere(
-          (member) => member.name == familyMemberName,
-          orElse: () =>
-              throw Exception('Family member not found: $familyMemberName'),
-        );
-        linkedUserIds.add(familyMember.linkedUserId);
-      }
-
-      // Create memory model
-      MemoryModel memory = MemoryModel(
-        id: '', // Will be generated by Firestore
-        title: _titleController.text.trim(),
-        type: _selectedType,
-        cloudinaryUrl: cloudinaryUrl,
-        emotions: _selectedEmotions.toList(),
-        releaseDate: _releaseDate,
-        createdAt: DateTime.now(),
-        createdBy: user.uid,
-        linkedUserIds:
-            linkedUserIds, // Include creator and selected family members
-      );
-
-      // Save to Firestore using MemoryService
-      MemoryService memoryService = MemoryService();
-      await memoryService.addMemory(memory);
-
-      String successMessage = 'Memory uploaded successfully!';
-      if (_linkedFamilyMemberNames.isNotEmpty) {
-        successMessage +=
-            ' Linked to ${_linkedFamilyMemberNames.length} family member(s).';
-      }
-      _showSnackBar(successMessage, isError: false);
-
-      // Navigate back to home
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      _showSnackBar('Error uploading memory: $e', isError: true);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isUploading = false;
-        });
-      }
     }
   }
 

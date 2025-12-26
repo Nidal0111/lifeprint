@@ -868,12 +868,12 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                               ],
                             ),
                             const SizedBox(height: 8),
-                            if (memory.emotions.isNotEmpty)
+                            if (memory.emotion.isNotEmpty)
                               Wrap(
                                 spacing: 6,
                                 runSpacing: 6,
-                                children: memory.emotions.map((e) {
-                                  return Container(
+                                children: [
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
                                       vertical: 4,
@@ -886,14 +886,13 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
-                                      e,
+                                      memory.emotion,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(color: Colors.white),
                                     ),
-                                  );
-                                }).toList(),
+                                  ),]
                               ),
                           ],
                         ),

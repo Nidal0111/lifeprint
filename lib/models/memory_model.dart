@@ -6,13 +6,16 @@ class MemoryModel {
   final MemoryType type;
   final String? cloudinaryUrl;
   final String? transcript;
-  final List<String> emotions;
+
+  /// 🔥 Auto-detected emotion (single value)
+  final String emotion;
+
   final DateTime? releaseDate;
   final DateTime createdAt;
   final String createdBy;
   final List<String> linkedUserIds;
-  // Transient flag: true when this memory is shared with the current user.
-  // This is not persisted to Firestore.
+
+  /// Transient flag (not stored in Firestore)
   final bool isShared;
 
   MemoryModel({
@@ -21,7 +24,7 @@ class MemoryModel {
     required this.type,
     this.cloudinaryUrl,
     this.transcript,
-    this.emotions = const [],
+    required this.emotion,
     this.releaseDate,
     required this.createdAt,
     required this.createdBy,
@@ -29,27 +32,27 @@ class MemoryModel {
     this.isShared = false,
   });
 
-  // Convert MemoryModel to Map for Firestore
+  // -------------------- FIRESTORE --------------------
+
+  /// Convert model → Firestore map
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'title': title,
       'type': type.name,
       'cloudinaryUrl': cloudinaryUrl,
       'transcript': transcript,
-      'emotions': emotions,
+      'emotion': emotion, // ✅ single emotion
       'releaseDate': releaseDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'createdBy': createdBy,
       'linkedUserIds': linkedUserIds,
-      // Note: isShared is transient and intentionally not persisted
     };
   }
 
-  // Create MemoryModel from Firestore document
-  factory MemoryModel.fromMap(Map<String, dynamic> map) {
+  /// Create model from Firestore map
+  factory MemoryModel.fromMap(Map<String, dynamic> map, String docId) {
     return MemoryModel(
-      id: map['id'] ?? '',
+      id: docId,
       title: map['title'] ?? '',
       type: MemoryType.values.firstWhere(
         (e) => e.name == map['type'],
@@ -57,32 +60,38 @@ class MemoryModel {
       ),
       cloudinaryUrl: map['cloudinaryUrl'],
       transcript: map['transcript'],
-      emotions: List<String>.from(map['emotions'] ?? []),
+
+      // ✅ Safe fallback for old documents
+      emotion: (map['emotion'] ?? 'unknown').toString(),
+
       releaseDate: map['releaseDate'] != null
-          ? DateTime.parse(map['releaseDate'])
+          ? DateTime.tryParse(map['releaseDate'])
           : null,
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'])
+          : DateTime.now(),
       createdBy: map['createdBy'] ?? '',
-      linkedUserIds: List<String>.from(map['linkedUserIds'] ?? []),
-      // isShared is transient; default to false when created from Firestore
+      linkedUserIds:
+          List<String>.from(map['linkedUserIds'] ?? const []),
       isShared: false,
     );
   }
 
-  // Create MemoryModel from Firestore DocumentSnapshot
+  /// Create model from Firestore DocumentSnapshot
   factory MemoryModel.fromDocument(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return MemoryModel.fromMap(data);
+    final data = doc.data() as Map<String, dynamic>;
+    return MemoryModel.fromMap(data, doc.id);
   }
 
-  // Create a copy of MemoryModel with updated fields
+  // -------------------- UTIL --------------------
+
   MemoryModel copyWith({
     String? id,
     String? title,
     MemoryType? type,
     String? cloudinaryUrl,
     String? transcript,
-    List<String>? emotions,
+    String? emotion,
     DateTime? releaseDate,
     DateTime? createdAt,
     String? createdBy,
@@ -95,7 +104,7 @@ class MemoryModel {
       type: type ?? this.type,
       cloudinaryUrl: cloudinaryUrl ?? this.cloudinaryUrl,
       transcript: transcript ?? this.transcript,
-      emotions: emotions ?? this.emotions,
+      emotion: emotion ?? this.emotion,
       releaseDate: releaseDate ?? this.releaseDate,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
@@ -106,7 +115,7 @@ class MemoryModel {
 
   @override
   String toString() {
-    return 'MemoryModel(id: $id, title: $title, type: $type, cloudinaryUrl: $cloudinaryUrl, transcript: $transcript, emotions: $emotions, releaseDate: $releaseDate, createdAt: $createdAt, createdBy: $createdBy, linkedUserIds: $linkedUserIds)';
+    return 'MemoryModel(id: $id, title: $title, type: $type, emotion: $emotion)';
   }
 
   @override
@@ -118,7 +127,7 @@ class MemoryModel {
         other.type == type &&
         other.cloudinaryUrl == cloudinaryUrl &&
         other.transcript == transcript &&
-        other.emotions == emotions &&
+        other.emotion == emotion &&
         other.releaseDate == releaseDate &&
         other.createdAt == createdAt &&
         other.createdBy == createdBy &&
@@ -127,20 +136,21 @@ class MemoryModel {
   }
 
   @override
-  int get hashCode {
-    return id.hashCode ^
-        title.hashCode ^
-        type.hashCode ^
-        cloudinaryUrl.hashCode ^
-        transcript.hashCode ^
-        emotions.hashCode ^
-        releaseDate.hashCode ^
-        createdAt.hashCode ^
-        createdBy.hashCode ^
-        linkedUserIds.hashCode ^
-        isShared.hashCode;
-  }
+  int get hashCode =>
+      id.hashCode ^
+      title.hashCode ^
+      type.hashCode ^
+      cloudinaryUrl.hashCode ^
+      transcript.hashCode ^
+      emotion.hashCode ^
+      releaseDate.hashCode ^
+      createdAt.hashCode ^
+      createdBy.hashCode ^
+      linkedUserIds.hashCode ^
+      isShared.hashCode;
 }
+
+// -------------------- ENUM --------------------
 
 enum MemoryType {
   photo,

@@ -306,221 +306,117 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           itemCount: memories.length,
           itemBuilder: (context, index) {
             final memory = memories[index];
-            return _buildMemoryCard(context, memory);
+            return buildMemoryCard(context, memory);
           },
         );
       },
     );
   }
+Future<List<MemoryModel>> _getMemories(String userId) async {
+  final memoryService = MemoryService();
+  final allMemories = await memoryService.getAllMemories(userId);
 
-  Future<List<MemoryModel>> _getMemories(String userId) async {
-    final memoryService = MemoryService();
-
-    if (_selectedEmotion == 'All') {
-      // Return all memories
-      return await memoryService.getAllMemories(userId);
-    } else {
-      // Get all memories and filter by emotion
-      final allMemories = await memoryService.getAllMemories(userId);
-      return allMemories
-          .where(
-            (memory) => memory.emotions.any(
-              (emotion) =>
-                  emotion.toLowerCase() == _selectedEmotion.toLowerCase(),
-            ),
-          )
-          .toList();
-    }
+  if (_selectedEmotion == 'All') {
+    return allMemories;
   }
 
-  Widget _buildMemoryCard(BuildContext context, MemoryModel memory) {
-    final now = DateTime.now();
-    final isLocked =
-        memory.releaseDate != null && memory.releaseDate!.isAfter(now);
+  return allMemories.where((memory) {
+    return memory.emotion.toLowerCase() ==
+        _selectedEmotion.toLowerCase(); // ✅ FIX
+  }).toList();
+}
 
-    return Card(
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  MemoryDetailScreen(memory: memory),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: animation.drive(
-                          Tween(
-                            begin: const Offset(0.0, 0.1),
-                            end: Offset.zero,
-                          ).chain(CurveTween(curve: Curves.easeOut)),
-                        ),
-                        child: child,
-                      ),
-                    );
-                  },
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Media Preview
-            _buildMediaPreview(memory, isLocked),
-
-            // Memory Info
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title and Type
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          memory.title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isLocked)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.lock,
-                                size: 16,
-                                color: Colors.orange[700],
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Locked',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Type and Date
-                  Row(
-                    children: [
-                      Icon(
-                        _getTypeIcon(memory.type),
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        memory.type.displayName,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                      ),
-                      const Spacer(),
-                      Text(
-                        _formatDate(memory.createdAt),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                      ),
-                    ],
-                  ),
-
-                  // Emotions
-                  if (memory.emotions.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: memory.emotions.map((emotion) {
-                        final isHighlighted =
-                            emotion.toLowerCase() ==
-                            _selectedEmotion.toLowerCase();
-                        return Chip(
-                          label: Text(
-                            emotion,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isHighlighted
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          backgroundColor: isHighlighted
-                              ? Colors.deepPurple.withOpacity(0.2)
-                              : _getEmotionColor(emotion).withOpacity(0.2),
-                          labelStyle: TextStyle(
-                            color: isHighlighted
-                                ? Colors.deepPurple
-                                : _getEmotionColor(emotion),
-                            fontWeight: isHighlighted
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                          ),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        );
-                      }).toList(),
-                    ),
-                  ],
-
-                  // Countdown for locked memories
-                  if (isLocked) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[200]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 16,
-                            color: Colors.orange[700],
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Unlocks in ${_getTimeUntilRelease(memory.releaseDate!)}',
-                            style: TextStyle(
-                              color: Colors.orange[700],
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+Widget buildMemoryCard(BuildContext context, MemoryModel memory) {
+  return Card(
+    elevation: 4,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MemoryDetailScreen(memory: memory),
+          ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---------------- MEDIA ----------------
+          if (memory.cloudinaryUrl != null)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                memory.cloudinaryUrl!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
-          ],
-        ),
+
+          // ---------------- CONTENT ----------------
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  memory.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Type
+                Text(
+                  memory.type.displayName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+
+                // ---------------- EMOTION (STRING SAFE) ----------------
+                if (memory.emotion.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      Chip(
+                        label: Text(
+                          memory.emotion,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _getEmotionColor(memory.emotion),
+                          ),
+                        ),
+                        backgroundColor:
+                            _getEmotionColor(memory.emotion).withOpacity(0.2),
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildMediaPreview(MemoryModel memory, bool isLocked) {
     if (memory.cloudinaryUrl == null) {

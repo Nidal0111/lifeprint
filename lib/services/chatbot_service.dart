@@ -140,8 +140,12 @@ class ChatbotService {
   Future<String> _queryWithGemini(String userQuery) async {
     try {
       final memories = await _memoryService.getAllMemories(currentUserId!);
-      final familyMembers = await _familyTreeService.getFamilyTree(currentUserId!);
-      final relationships = await _familyTreeService.getUserRelationships(currentUserId!);
+      final familyMembers = await _familyTreeService.getFamilyTree(
+        currentUserId!,
+      );
+      final relationships = await _familyTreeService.getUserRelationships(
+        currentUserId!,
+      );
       final events = await _eventService.getUserEvents();
 
       // Limit number of items sent to the model
@@ -160,15 +164,19 @@ class ChatbotService {
               'id': m.id,
               'title': m.title,
               'memoryType': m.type.name,
-              'emotions': m.emotions,
+              'emotions': m.emotion,
               'createdAt': m.createdAt.toIso8601String(),
-              'transcript': m.transcript?.substring(0, 200), // Limit transcript length
+              'transcript': m.transcript?.substring(
+                0,
+                200,
+              ), // Limit transcript length
             });
           })
           .join('\n');
 
       // Serialize family relationships
-      final familyLines = relationships.take(familyLimit)
+      final familyLines = relationships
+          .take(familyLimit)
           .map((r) {
             final relatedUser = familyMembers[r.toUserId];
             return jsonEncode({
@@ -283,14 +291,13 @@ Always provide value by connecting their stored information to their question.''
       final lowerQuery = userQuery.toLowerCase();
       final found = memories.where((m) {
         return m.title.toLowerCase().contains(lowerQuery) ||
-            m.emotions.any((e) => e.toLowerCase().contains(lowerQuery));
+            m.emotion.toLowerCase().contains(lowerQuery);
       }).toList();
 
       if (found.isNotEmpty) {
         final mem = found.first;
-        final emotion = mem.emotions.isNotEmpty
-            ? mem.emotions.first
-            : 'nostalgic';
+        final emotion = mem.emotion.isNotEmpty ? mem.emotion : 'nostalgic';
+
         return 'I remember "${mem.title}" — it feels ${emotion.toLowerCase()}. Want me to open that memory?';
       }
 
@@ -323,9 +330,10 @@ Always provide value by connecting their stored information to their question.''
               "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
           response +=
               "   Created ${daysAgo == 0 ? 'today' : '$daysAgo days ago'}\n";
-          if (memory.emotions.isNotEmpty) {
-            response += "   Emotions: ${memory.emotions.join(', ')}\n";
+          if (memory.emotion.isNotEmpty) {
+            response += "   Emotion: ${memory.emotion}\n";
           }
+
           response += "\n";
         }
         return response;
@@ -377,11 +385,10 @@ Always provide value by connecting their stored information to their question.''
       ];
       for (final emotion in emotionKeywords) {
         if (message.contains(emotion)) {
-          final emotionMemories = memories
-              .where(
-                (m) => m.emotions.any((e) => e.toLowerCase().contains(emotion)),
-              )
-              .toList();
+          final emotionMemories = memories.where(
+            (m) => m.emotion.toLowerCase().contains(emotion),
+          );
+
           return "You have ${emotionMemories.length} memories tagged with '$emotion'. ${emotionMemories.isNotEmpty ? 'Your most recent $emotion memory is "${emotionMemories.first.title}"' : ''}";
         }
       }
@@ -415,7 +422,9 @@ Always provide value by connecting their stored information to their question.''
     try {
       final userId = currentUserId!;
       final familyMembers = await _familyTreeService.getFamilyTree(userId);
-      final relationships = await _familyTreeService.getFamilyRelationships(userId);
+      final relationships = await _familyTreeService.getFamilyRelationships(
+        userId,
+      );
 
       if (familyMembers.isEmpty && relationships.isEmpty) {
         return "You haven't added any family members yet! Building your family tree is an important part of your digital legacy. Try adding some family members through the Family Tree section.";
@@ -423,21 +432,28 @@ Always provide value by connecting their stored information to their question.''
 
       // Handle specific relationship queries
       if (_containsAny(message, ['who are my', 'list my', 'show my'])) {
-        String response = "👨‍👩‍👧‍👦 **Your Family Members** (${familyMembers.length - 1} connected):\n\n";
+        String response =
+            "👨‍👩‍👧‍👦 **Your Family Members** (${familyMembers.length - 1} connected):\n\n";
 
         // Get relationships for the user
-        final userRelationships = await _familyTreeService.getUserRelationships(userId);
+        final userRelationships = await _familyTreeService.getUserRelationships(
+          userId,
+        );
 
         if (userRelationships.isEmpty) {
-          response += "You haven't connected with any family members yet. Start building your family tree!";
+          response +=
+              "You haven't connected with any family members yet. Start building your family tree!";
         } else {
           for (int i = 0; i < userRelationships.length; i++) {
             final relationship = userRelationships[i];
             final relatedUser = familyMembers[relationship.toUserId];
 
             if (relatedUser != null) {
-              final relationDisplay = RelationshipType.getDisplayName(relationship.relation);
-              response += "${i + 1}. **${relatedUser.name}** (${relationDisplay})\n";
+              final relationDisplay = RelationshipType.getDisplayName(
+                relationship.relation,
+              );
+              response +=
+                  "${i + 1}. **${relatedUser.name}** (${relationDisplay})\n";
             }
           }
         }
@@ -455,7 +471,8 @@ Always provide value by connecting their stored information to their question.''
 
       for (final entry in relationTypes.entries) {
         if (_containsAny(message, entry.value)) {
-          final userRelationships = await _familyTreeService.getUserRelationships(userId);
+          final userRelationships = await _familyTreeService
+              .getUserRelationships(userId);
           final matchingRelations = userRelationships
               .where((r) => r.relation == entry.key)
               .toList();
@@ -464,7 +481,8 @@ Always provide value by connecting their stored information to their question.''
             return "You don't have any ${entry.key}s added to your family tree yet.";
           }
 
-          String response = "👪 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s**:\n\n";
+          String response =
+              "👪 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s**:\n\n";
           for (int i = 0; i < matchingRelations.length; i++) {
             final relationship = matchingRelations[i];
             final relatedUser = familyMembers[relationship.toUserId];
@@ -479,11 +497,14 @@ Always provide value by connecting their stored information to their question.''
       }
 
       // General family info
-      final userRelationships = await _familyTreeService.getUserRelationships(userId);
+      final userRelationships = await _familyTreeService.getUserRelationships(
+        userId,
+      );
       final relationCounts = <String, int>{};
 
       for (final relationship in userRelationships) {
-        relationCounts[relationship.relation] = (relationCounts[relationship.relation] ?? 0) + 1;
+        relationCounts[relationship.relation] =
+            (relationCounts[relationship.relation] ?? 0) + 1;
       }
 
       String response = "👨‍👩‍👧‍👦 **Your Family Tree Overview**\n\n";
@@ -536,11 +557,14 @@ Always provide value by connecting their stored information to their question.''
           .inDays;
 
       // Most common emotions
-      final allEmotions = memories.expand((m) => m.emotions).toList();
-      final emotionCounts = <String, int>{};
-      for (final emotion in allEmotions) {
-        emotionCounts[emotion] = (emotionCounts[emotion] ?? 0) + 1;
-      }
+    final emotionCounts = <String, int>{};
+for (final m in memories) {
+  if (m.emotion.isNotEmpty) {
+    emotionCounts[m.emotion] =
+        (emotionCounts[m.emotion] ?? 0) + 1;
+  }
+}
+
       final topEmotions = emotionCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -577,8 +601,12 @@ Always provide value by connecting their stored information to their question.''
   Future<String> _handleSearchQuery(String message) async {
     try {
       final memories = await _memoryService.getAllMemories(currentUserId!);
-      final familyMembers = await _familyTreeService.getFamilyTree(currentUserId!);
-      final userRelationships = await _familyTreeService.getUserRelationships(currentUserId!);
+      final familyMembers = await _familyTreeService.getFamilyTree(
+        currentUserId!,
+      );
+      final userRelationships = await _familyTreeService.getUserRelationships(
+        currentUserId!,
+      );
       final events = await _eventService.getUserEvents();
 
       if (memories.isEmpty) {
@@ -598,8 +626,28 @@ Always provide value by connecting their stored information to their question.''
       }
 
       // Check for cross-collection queries
-      final isFamilyQuery = _containsAny(message, ['family', 'relative', 'parent', 'child', 'spouse', 'sibling', 'brother', 'sister', 'mother', 'father', 'mom', 'dad']);
-      final isEventQuery = _containsAny(message, ['event', 'events', 'birthday', 'meeting', 'appointment', 'calendar']);
+      final isFamilyQuery = _containsAny(message, [
+        'family',
+        'relative',
+        'parent',
+        'child',
+        'spouse',
+        'sibling',
+        'brother',
+        'sister',
+        'mother',
+        'father',
+        'mom',
+        'dad',
+      ]);
+      final isEventQuery = _containsAny(message, [
+        'event',
+        'events',
+        'birthday',
+        'meeting',
+        'appointment',
+        'calendar',
+      ]);
 
       // Cross-collection search: memories about family members
       if (isFamilyQuery && userRelationships.isNotEmpty) {
@@ -613,21 +661,29 @@ Always provide value by connecting their stored information to their question.''
           final titleMatch = familyNames.any(
             (name) => memory.title.toLowerCase().contains(name),
           );
-          final transcriptMatch = memory.transcript != null && familyNames.any(
-            (name) => memory.transcript!.toLowerCase().contains(name),
-          );
+          final transcriptMatch =
+              memory.transcript != null &&
+              familyNames.any(
+                (name) => memory.transcript!.toLowerCase().contains(name),
+              );
           return titleMatch || transcriptMatch;
         }).toList();
 
         if (familyMemories.isNotEmpty) {
-          String response = "👨‍👩‍👧‍👦 **Memories About Your Family** (${familyMemories.length} found):\n\n";
-          for (int i = 0; i < (familyMemories.length > 5 ? 5 : familyMemories.length); i++) {
+          String response =
+              "👨‍👩‍👧‍👦 **Memories About Your Family** (${familyMemories.length} found):\n\n";
+          for (
+            int i = 0;
+            i < (familyMemories.length > 5 ? 5 : familyMemories.length);
+            i++
+          ) {
             final memory = familyMemories[i];
             response +=
                 "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-            if (memory.emotions.isNotEmpty) {
-              response += "   Emotions: ${memory.emotions.join(', ')}\n";
-            }
+        if (memory.emotion.isNotEmpty) {
+  response += "   Emotion: ${memory.emotion}\n";
+}
+
             response += "\n";
           }
           return response;
@@ -642,21 +698,29 @@ Always provide value by connecting their stored information to their question.''
           final titleMatch = eventTitles.any(
             (title) => memory.title.toLowerCase().contains(title),
           );
-          final transcriptMatch = memory.transcript != null && eventTitles.any(
-            (title) => memory.transcript!.toLowerCase().contains(title),
-          );
+          final transcriptMatch =
+              memory.transcript != null &&
+              eventTitles.any(
+                (title) => memory.transcript!.toLowerCase().contains(title),
+              );
           return titleMatch || transcriptMatch;
         }).toList();
 
         if (eventMemories.isNotEmpty) {
-          String response = "📅 **Memories Related to Your Events** (${eventMemories.length} found):\n\n";
-          for (int i = 0; i < (eventMemories.length > 5 ? 5 : eventMemories.length); i++) {
+          String response =
+              "📅 **Memories Related to Your Events** (${eventMemories.length} found):\n\n";
+          for (
+            int i = 0;
+            i < (eventMemories.length > 5 ? 5 : eventMemories.length);
+            i++
+          ) {
             final memory = eventMemories[i];
             response +=
                 "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-            if (memory.emotions.isNotEmpty) {
-              response += "   Emotions: ${memory.emotions.join(', ')}\n";
-            }
+         if (memory.emotion.isNotEmpty) {
+  response += "   Emotion: ${memory.emotion}\n";
+}
+
             response += "\n";
           }
           return response;
@@ -668,20 +732,23 @@ Always provide value by connecting their stored information to their question.''
         final titleMatch = searchTerms.any(
           (term) => memory.title.toLowerCase().contains(term.toLowerCase()),
         );
-        final emotionMatch = searchTerms.any(
-          (term) => memory.emotions.any(
-            (emotion) => emotion.toLowerCase().contains(term.toLowerCase()),
-          ),
-        );
-        final transcriptMatch = memory.transcript != null && searchTerms.any(
-          (term) => memory.transcript!.toLowerCase().contains(term.toLowerCase()),
-        );
+      final emotionMatch = searchTerms.any(
+  (term) => memory.emotion.toLowerCase().contains(term),
+);
+
+        final transcriptMatch =
+            memory.transcript != null &&
+            searchTerms.any(
+              (term) =>
+                  memory.transcript!.toLowerCase().contains(term.toLowerCase()),
+            );
         return titleMatch || emotionMatch || transcriptMatch;
       }).toList();
 
       if (results.isEmpty) {
         // Suggest cross-collection alternatives
-        String suggestion = "I couldn't find any memories matching '${searchTerms.join(' ')}'.";
+        String suggestion =
+            "I couldn't find any memories matching '${searchTerms.join(' ')}'.";
 
         if (userRelationships.isNotEmpty) {
           suggestion += " Try searching for family-related memories.";
@@ -698,9 +765,10 @@ Always provide value by connecting their stored information to their question.''
         final memory = results[i];
         response +=
             "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-        if (memory.emotions.isNotEmpty) {
-          response += "   Emotions: ${memory.emotions.join(', ')}\n";
-        }
+       if (memory.emotion.isNotEmpty) {
+  response += "   Emotion: ${memory.emotion}\n";
+}
+
         response += "\n";
       }
 
@@ -753,8 +821,13 @@ Always provide value by connecting their stored information to their question.''
           return "You don't have any upcoming events in the next 7 days.";
         }
 
-        String response = "📅 **Upcoming Events** (${upcomingEvents.length}):\n\n";
-        for (int i = 0; i < (upcomingEvents.length > 5 ? 5 : upcomingEvents.length); i++) {
+        String response =
+            "📅 **Upcoming Events** (${upcomingEvents.length}):\n\n";
+        for (
+          int i = 0;
+          i < (upcomingEvents.length > 5 ? 5 : upcomingEvents.length);
+          i++
+        ) {
           final event = upcomingEvents[i];
           final daysUntil = event.date.difference(DateTime.now()).inDays;
 
@@ -789,8 +862,13 @@ Always provide value by connecting their stored information to their question.''
             return "You don't have any ${entry.key} events scheduled.";
           }
 
-          String response = "📅 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s** (${typeEvents.length}):\n\n";
-          for (int i = 0; i < (typeEvents.length > 5 ? 5 : typeEvents.length); i++) {
+          String response =
+              "📅 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s** (${typeEvents.length}):\n\n";
+          for (
+            int i = 0;
+            i < (typeEvents.length > 5 ? 5 : typeEvents.length);
+            i++
+          ) {
             final event = typeEvents[i];
             response += "${i + 1}. **${event.title}**\n";
             response += "   📅 ${event.formattedDate}\n";
@@ -827,7 +905,8 @@ Always provide value by connecting their stored information to their question.''
       if (typeCounts.isNotEmpty) {
         response += "📋 **Event Types**:\n";
         for (final entry in typeCounts.entries) {
-          final displayType = entry.key[0].toUpperCase() + entry.key.substring(1);
+          final displayType =
+              entry.key[0].toUpperCase() + entry.key.substring(1);
           response += "   • $displayType: ${entry.value}\n";
         }
       }
@@ -844,16 +923,20 @@ Always provide value by connecting their stored information to their question.''
       final memories = await _memoryService.getAllMemories(currentUserId!);
       final events = await _eventService.getUserEvents();
       final todaysEvents = await _eventService.getTodaysEvents();
-      final userRelationships = await _familyTreeService.getUserRelationships(currentUserId!);
+      final userRelationships = await _familyTreeService.getUserRelationships(
+        currentUserId!,
+      );
 
       String greeting = "Hi there! 👋";
 
       // Add today's events reminder
       if (todaysEvents.isNotEmpty) {
-        greeting += "\n\n📅 **Today you have ${todaysEvents.length} event${todaysEvents.length > 1 ? 's' : ''}**";
+        greeting +=
+            "\n\n📅 **Today you have ${todaysEvents.length} event${todaysEvents.length > 1 ? 's' : ''}**";
         if (todaysEvents.length <= 2) {
           for (final event in todaysEvents) {
-            greeting += "\n   • ${event.title}${event.time != null ? ' at ${event.formattedTime}' : ''}";
+            greeting +=
+                "\n   • ${event.title}${event.time != null ? ' at ${event.formattedTime}' : ''}";
           }
         }
       }
@@ -868,22 +951,26 @@ Always provide value by connecting their stored information to their question.''
 
         if (hasMemories && memories.length > 0) {
           final recentMemory = memories.first;
-          greeting += "\n   • Check out your recent memory: \"${recentMemory.title}\"";
+          greeting +=
+              "\n   • Check out your recent memory: \"${recentMemory.title}\"";
         }
 
         if (hasFamily && userRelationships.length > 0) {
-          greeting += "\n   • You have ${userRelationships.length} family connection${userRelationships.length > 1 ? 's' : ''}";
+          greeting +=
+              "\n   • You have ${userRelationships.length} family connection${userRelationships.length > 1 ? 's' : ''}";
         }
 
         if (hasEvents && todaysEvents.isEmpty) {
           final upcomingEvents = await _eventService.getUpcomingEvents();
           if (upcomingEvents.isNotEmpty && upcomingEvents.length <= 2) {
-            greeting += "\n   • Your next event: \"${upcomingEvents.first.title}\" on ${upcomingEvents.first.formattedDate}";
+            greeting +=
+                "\n   • Your next event: \"${upcomingEvents.first.title}\" on ${upcomingEvents.first.formattedDate}";
           }
         }
       }
 
-      greeting += "\n\nFeel free to ask me about your memories, family, or events! What would you like to explore today?";
+      greeting +=
+          "\n\nFeel free to ask me about your memories, family, or events! What would you like to explore today?";
 
       return greeting;
     } catch (e) {
