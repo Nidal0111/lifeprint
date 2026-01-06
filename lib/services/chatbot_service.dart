@@ -247,20 +247,31 @@ Examples of good responses:
 Always provide value by connecting their stored information to their question.''';
 
       // Read endpoint and key from dart-define environment variables
-      final geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
+      String geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
       final geminiKey = const String.fromEnvironment('GEMINI_API_KEY');
+
+      // ✅ FALLBACK: Use Google AI Studio URL if not provided (matches GEMINI_API_SETUP.md)
+      if (geminiUrl.isEmpty) {
+        geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+      }
 
       if (geminiUrl.isNotEmpty) {
         try {
           final resp = await http
               .post(
-                Uri.parse(geminiUrl),
+                Uri.parse(geminiUrl.contains('?') ? '$geminiUrl&key=$geminiKey' : '$geminiUrl?key=$geminiKey'),
                 headers: {
                   'Content-Type': 'application/json',
-                  if (geminiKey.isNotEmpty)
-                    'Authorization': 'Bearer $geminiKey',
                 },
-                body: jsonEncode({'prompt': prompt}),
+                body: jsonEncode({
+                  'contents': [
+                    {
+                      'parts': [
+                        {'text': prompt}
+                      ]
+                    }
+                  ]
+                }),
               )
               .timeout(const Duration(seconds: 15));
 
@@ -269,6 +280,21 @@ Always provide value by connecting their stored information to their question.''
             try {
               final body = jsonDecode(resp.body);
               if (body is Map<String, dynamic>) {
+                // Handle Google AI Studio response format
+                if (body.containsKey('candidates')) {
+                  final candidates = body['candidates'] as List;
+                  if (candidates.isNotEmpty) {
+                    final content = candidates[0]['content'];
+                    if (content != null && content['parts'] != null) {
+                      final parts = content['parts'] as List;
+                      if (parts.isNotEmpty) {
+                        return parts[0]['text'].toString().trim();
+                      }
+                    }
+                  }
+                }
+                
+                // Keep existing flexible parsing
                 final result =
                     body['result'] ??
                     body['text'] ??
