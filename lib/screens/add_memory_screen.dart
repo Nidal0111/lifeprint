@@ -137,6 +137,17 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         finalEmotion = _selectedEmotion ?? 'Neutral';
       }
 
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final linkedUserIds = <String>[user.uid];
+      for (final name in _linkedFamilyMemberNames) {
+        final member = _availableFamilyMembers.firstWhere(
+          (m) => m.name == name,
+        );
+        linkedUserIds.add(member.linkedUserId);
+      }
+
       final memory = MemoryModel(
         id: '',
         title: _titleController.text.trim(),
@@ -151,7 +162,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
 
       await MemoryService().addMemory(memory);
 
-      _showSnackBar(
       _showSnackBar(
         'Memory saved (${finalEmotion.toUpperCase()})',
         isError: false,
