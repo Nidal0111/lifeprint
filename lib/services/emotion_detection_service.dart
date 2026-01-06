@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' as http_parser;
 
 class EmotionDetectionService {
   static const String _baseUrl = 'https://lifeprint.onrender.com';
@@ -71,22 +72,28 @@ class EmotionDetectionService {
 
   /// Extract emotion labels safely
   List<String> _extractEmotionsFromResponse(dynamic jsonData) {
-    final List<String> emotions = [];
+    List<String> emotions = [];
 
-    // Case 1: Face detected (list response)
+    // Case 1: Face detected -> List response
     if (jsonData is List) {
-      for (final item in jsonData) {
+      for (var item in jsonData) {
         if (item is Map && item.containsKey('emotion')) {
           emotions.add(item['emotion'].toString());
         }
       }
     }
 
-    // Case 2: No face detected / message response
+    // Case 2: No face detected
     else if (jsonData is Map && jsonData.containsKey('message')) {
-      debugPrint('Emotion API message: ${jsonData['message']}');
+      print(jsonData['message']);
+      emotions.add('Neutral');
     }
 
-    return emotions;
+    // Fallback
+    if (emotions.isEmpty) {
+      emotions.add('Neutral');
+    }
+
+    return emotions.toSet().toList();
   }
 }
