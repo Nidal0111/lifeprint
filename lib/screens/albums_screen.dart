@@ -301,12 +301,18 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
           );
         }
 
-        return ListView.builder(
+        return GridView.builder(
           padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.8,
+          ),
           itemCount: memories.length,
           itemBuilder: (context, index) {
             final memory = memories[index];
-            return buildMemoryCard(context, memory);
+            return _buildMemoryGridItem(context, memory);
           },
         );
       },
@@ -326,96 +332,138 @@ Future<List<MemoryModel>> _getMemories(String userId) async {
   }).toList();
 }
 
-Widget buildMemoryCard(BuildContext context, MemoryModel memory) {
-  return Card(
-    elevation: 4,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(16),
+  Widget _buildMemoryGridItem(BuildContext context, MemoryModel memory) {
+    final now = DateTime.now();
+    final isLocked =
+        memory.releaseDate != null && memory.releaseDate!.isAfter(now);
+
+    return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MemoryDetailScreen(memory: memory),
-          ),
-        );
+        if (!isLocked) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MemoryDetailScreen(memory: memory),
+            ),
+          );
+        }
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ---------------- MEDIA ----------------
-          if (memory.cloudinaryUrl != null)
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(
-                memory.cloudinaryUrl!,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Media Preview
+            _buildGridMediaPreview(memory),
+
+            // Gradient Overlay for Title
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+                child: Text(
+                  memory.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
 
-          // ---------------- CONTENT ----------------
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  memory.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+            // Lock Overlay
+            if (isLocked)
+              Container(
+                color: Colors.black.withOpacity(0.4),
+                child: const Center(
+                  child: Icon(Icons.lock, color: Colors.white, size: 24),
                 ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                const SizedBox(height: 8),
+  Widget _buildGridMediaPreview(MemoryModel memory) {
+    if (memory.cloudinaryUrl == null) {
+      return Container(
+        color: Colors.grey[200],
+        child: Icon(
+          _getGridIcon(memory.type),
+          color: Colors.grey[400],
+          size: 30,
+        ),
+      );
+    }
 
-                // Type
-                Text(
-                  memory.type.displayName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-
-                // ---------------- EMOTION (STRING SAFE) ----------------
-                if (memory.emotion.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      Chip(
-                        label: Text(
-                          memory.emotion,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: _getEmotionColor(memory.emotion),
-                          ),
-                        ),
-                        backgroundColor:
-                            _getEmotionColor(memory.emotion).withOpacity(0.2),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+    return Image.network(
+      memory.cloudinaryUrl!,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[100],
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
           ),
-        ],
-      ),
-    ),
-  );
-}
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: Colors.grey[200],
+          child: Icon(
+            _getGridIcon(memory.type),
+            color: Colors.grey[400],
+            size: 30,
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getGridIcon(MemoryType type) {
+    switch (type) {
+      case MemoryType.photo:
+        return Icons.image;
+      case MemoryType.video:
+        return Icons.videocam;
+      case MemoryType.audio:
+        return Icons.audiotrack;
+      case MemoryType.text:
+        return Icons.text_snippet;
+    }
+  }
 
 
   Widget _buildMediaPreview(MemoryModel memory, bool isLocked) {

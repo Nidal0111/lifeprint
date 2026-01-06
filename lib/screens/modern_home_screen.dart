@@ -671,23 +671,32 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             .map((doc) => MemoryModel.fromDocument(doc))
             .toList();
 
-        return ListView.builder(
+        return GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.8,
+          ),
           itemCount: memories.length,
           itemBuilder: (context, index) {
             final memory = memories[index];
-            return _buildMemoryCard(context, memory, index);
+            return _buildMemoryGridItem(context, memory, index);
           },
         );
       },
     );
   }
 
-  Widget _buildMemoryCard(BuildContext context, MemoryModel memory, int index) {
+  Widget _buildMemoryGridItem(
+    BuildContext context,
+    MemoryModel memory,
+    int index,
+  ) {
     final now = DateTime.now();
     final isLocked =
         memory.releaseDate != null && memory.releaseDate!.isAfter(now);
-    final remaining = isLocked ? memory.releaseDate!.difference(now) : null;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -702,242 +711,134 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 curve: Curves.easeOutCubic,
               ),
             ),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      MemoryDetailScreen(memory: memory),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                              CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeInOut,
-                              ),
-                            ),
-                            child: child,
-                          ),
-                        );
-                      },
-                  transitionDuration: const Duration(milliseconds: 300),
+        child: GestureDetector(
+          onTap: () {
+            if (!isLocked) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MemoryDetailScreen(memory: memory),
                 ),
               );
-            },
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(
-                  children: [
-                    // Background Image
-                    if (memory.cloudinaryUrl != null)
-                      Positioned.fill(
-                        child: Image.network(
-                          memory.cloudinaryUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.blue.withOpacity(0.7),
-                                    Colors.purple.withOpacity(0.7),
-                                  ],
-                                ),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  _getTypeIcon(memory.type),
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    else
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.blue.withOpacity(0.7),
-                              Colors.purple.withOpacity(0.7),
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            _getTypeIcon(memory.type),
-                            size: 48,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    // Gradient Overlay
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Content
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              memory.title,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(
-                                  _getTypeIcon(memory.type),
-                                  size: 16,
-                                  color: Colors.white.withOpacity(0.8),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  memory.type.displayName,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: Colors.white.withOpacity(0.8),
-                                      ),
-                                ),
-                                const Spacer(),
-                                if (isLocked)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.8),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.lock,
-                                          size: 12,
-                                          color: Colors.white,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _formatRemaining(remaining!),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (memory.emotion.isNotEmpty)
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.25),
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      memory.emotion,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: Colors.white),
-                                    ),
-                                  ),]
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Action Button
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_upward,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
-              ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Media Preview
+                _buildGridMediaPreview(memory, isLocked),
+
+                // Gradient Overlay for Title
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      memory.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Lock Overlay
+                if (isLocked)
+                  Container(
+                    color: Colors.black.withOpacity(0.4),
+                    child: const Center(
+                      child: Icon(Icons.lock, color: Colors.white, size: 24),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildGridMediaPreview(MemoryModel memory, bool isLocked) {
+    if (memory.cloudinaryUrl == null) {
+      return Container(
+        color: Colors.grey[200],
+        child: Icon(
+          _getMemoryGridIcon(memory.type),
+          color: Colors.grey[400],
+          size: 30,
+        ),
+      );
+    }
+
+    return Image.network(
+      memory.cloudinaryUrl!,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[100],
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: Colors.grey[200],
+          child: Icon(
+            _getMemoryGridIcon(memory.type),
+            color: Colors.grey[400],
+            size: 30,
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getMemoryGridIcon(MemoryType type) {
+    switch (type) {
+      case MemoryType.photo:
+        return Icons.image;
+      case MemoryType.video:
+        return Icons.videocam;
+      case MemoryType.audio:
+        return Icons.audiotrack;
+      case MemoryType.text:
+        return Icons.text_snippet;
+    }
   }
 
   String _formatRemaining(Duration remaining) {
