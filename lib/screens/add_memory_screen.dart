@@ -227,7 +227,10 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                             const SizedBox(height: 24),
 
                             // Emotion Tags (UI-only)
-                            _buildEmotionSelectionSection(),
+                            if (_selectedType != MemoryType.photo) ...[
+                              _buildEmotionSelectionSection(),
+                              const SizedBox(height: 24),
+                            ],
                             const SizedBox(height: 24),
 
                             // Link Family Members (UI-only)
