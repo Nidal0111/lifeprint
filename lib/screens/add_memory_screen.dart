@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:lifeprint/services/emotion_detection_service.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
 import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
@@ -31,6 +32,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   final List<String> _linkedFamilyMemberNames = [];
   final List<FamilyMember> _availableFamilyMembers = [];
   final FamilyTreeService _familyService = FamilyTreeService();
+  final EmotionDetectionService _emotionService = EmotionDetectionService();
 
   dynamic _selectedFile;
   String? _selectedFileName;
@@ -38,6 +40,12 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   DateTime? _releaseDate;
   bool _isLoading = false;
   bool _isUploading = false;
+  String? _selectedEmotion;
+
+  final List<String> _emotionList = [
+    'Joy', 'Sadness', 'Anger', 'Disgust', 'Fear', 'Surprise', 'Neutral',
+    'Love', 'Gratitude', 'Peace', 'Excitement', 'Pride'
+  ];
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -77,23 +85,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     super.dispose();
   }
 
-  // ---------------- EMOTION API ----------------
-
-  Future<String> _detectEmotion(String imageUrl) async {
-    final response = await http.post(
-      Uri.parse('http://127.0.0.1:5000/predict'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'image_url': imageUrl}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Emotion detection failed');
-    }
-
-    final data = jsonDecode(response.body);
-    return data['emotion'].toString().toLowerCase();
-  }
-
   // ---------------- UPLOAD MEMORY ----------------
 
   Future<void> _uploadMemory() async {
@@ -109,24 +100,41 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     });
 
     try {
-      final cloudinaryUrl = await CloudinaryService.uploadImage(
-        file: _selectedFile, // Androi
-      );
+      final String cloudinaryUrl;
+      if (kIsWeb) {
+        // Web: _selectedFile is Uint8List
+        cloudinaryUrl = await CloudinaryService.uploadImage(
+          bytes: _selectedFile,
+          fileName: _selectedFileName,
+        );
+      } else {
+        // Mobile: _selectedFile is File
+        cloudinaryUrl = await CloudinaryService.uploadImage(
+          file: _selectedFile,
+        );
+      }
+      
       if (cloudinaryUrl == null) {
         throw Exception('Cloudinary upload failed');
       }
 
-      final detectedEmotion = await _detectEmotion(cloudinaryUrl);
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
-
-      final linkedUserIds = <String>[user.uid];
-      for (final name in _linkedFamilyMemberNames) {
-        final member = _availableFamilyMembers.firstWhere(
-          (m) => m.name == name,
-        );
-        linkedUserIds.add(member.linkedUserId);
+      // Determine emotion logic
+      String finalEmotion = 'Neutral';
+      
+      if (_selectedType == MemoryType.photo) {
+        if (_selectedEmotion != null) {
+          // User manually selected an emotion, prioritize it
+          finalEmotion = _selectedEmotion!;
+        } else {
+          // Auto-detect if no manual selection
+          final emotions = await _emotionService.detectEmotions(_selectedFile);
+          if (emotions.isNotEmpty) {
+            finalEmotion = emotions.first;
+          }
+        }
+      } else {
+        // Non-photo types: use manual selection or default
+        finalEmotion = _selectedEmotion ?? 'Neutral';
       }
 
       final memory = MemoryModel(
@@ -134,7 +142,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         title: _titleController.text.trim(),
         type: _selectedType,
         cloudinaryUrl: cloudinaryUrl,
-        emotion: detectedEmotion, // ✅ AUTO
+        emotion: finalEmotion, 
         releaseDate: _releaseDate,
         createdAt: DateTime.now(),
         createdBy: user.uid,
@@ -144,7 +152,8 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       await MemoryService().addMemory(memory);
 
       _showSnackBar(
-        'Memory saved (${detectedEmotion.toUpperCase()})',
+      _showSnackBar(
+        'Memory saved (${finalEmotion.toUpperCase()})',
         isError: false,
       );
 
@@ -208,6 +217,8 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                             const SizedBox(height: 24),
 
                             // Emotion Tags (UI-only)
+                            _buildEmotionSelectionSection(),
+                            const SizedBox(height: 24),
 
                             // Link Family Members (UI-only)
                             _buildLinkFamilyMembersSection(),
@@ -616,6 +627,79 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
               }
               return null;
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmotionSelectionSection() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.mood, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Emotion (Optional for Photos)',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _selectedType == MemoryType.photo
+                ? 'Leave empty to auto-detect emotion, or select to override.'
+                : 'Select an emotion for this memory.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _emotionList.map((emotion) {
+              final isSelected = _selectedEmotion == emotion;
+              return ChoiceChip(
+                label: Text(
+                  emotion,
+                  style: GoogleFonts.poppins(
+                    color: isSelected ? Colors.black : Colors.white,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedEmotion = selected ? emotion : null;
+                  });
+                },
+                selectedColor: Colors.white,
+                backgroundColor: Colors.white.withOpacity(0.1),
+                checkmarkColor: Colors.black,
+              );
+            }).toList(),
           ),
         ],
       ),

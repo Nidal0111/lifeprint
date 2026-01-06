@@ -37,20 +37,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
   final EventService _eventService = EventService();
   List<EventModel> _todaysEvents = [];
 
-  final List<String> _filterOptions = [
-    'All',
-    'Joy',
-    'Nostalgia',
-    'Sadness',
-    'Excitement',
-    'Love',
-    'Gratitude',
-    'Peace',
-    'Adventure',
-    'Achievement',
-    'Family',
-    'Friendship',
-  ];
+  // This will be updated dynamically from the database
+  List<String> _filterOptions = ['All'];
 
   @override
   void initState() {
@@ -513,55 +501,81 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
               ),
               const SizedBox(height: 16),
               // Filter Chips
-              SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _filterOptions.length,
-                  itemBuilder: (context, index) {
-                    final filter = _filterOptions[index];
-                    final isSelected = _selectedFilter == filter;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedFilter = filter;
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1,
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('memories')
+                    .where('createdBy', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    final emotions = snapshot.data!.docs
+                        .map((doc) => (doc.data() as Map<String, dynamic>)['emotion'] as String?)
+                        .where((e) => e != null && e.isNotEmpty)
+                        .cast<String>()
+                        .toSet()
+                        .toList();
+                    emotions.sort();
+                    _filterOptions = ['All', ...emotions];
+                    
+                    // Reset filter if current one is no longer available
+                    if (!_filterOptions.contains(_selectedFilter)) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _selectedFilter = 'All');
+                      });
+                    }
+                  }
+
+                  return SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _filterOptions.length,
+                      itemBuilder: (context, index) {
+                        final filter = _filterOptions[index];
+                        final isSelected = _selectedFilter == filter;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedFilter = filter;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                filter,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFF667eea)
+                                      : const Color.fromARGB(255, 214, 142, 243),
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
-                          child: Text(
-                            filter,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? const Color(0xFF667eea)
-                                  : const Color.fromARGB(255, 214, 142, 243),
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
             ],
@@ -577,7 +591,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         .where('createdBy', isEqualTo: userId);
 
     if (_selectedFilter != 'All') {
-      query = query.where('emotions', arrayContains: _selectedFilter);
+      query = query.where('emotion', isEqualTo: _selectedFilter);
     }
 
     return StreamBuilder<QuerySnapshot>(

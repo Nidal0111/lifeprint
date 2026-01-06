@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class EmotionDetectionService {
-  static const String _baseUrl = 'http://127.0.0.1:5000';
+  static const String _baseUrl = 'https://lifeprint.onrender.com';
   
-  /// Detect emotions from an image file
-  /// Returns a list of detected emotions
   Future<List<String>> detectEmotions(dynamic imageFile) async {
     try {
       final uri = Uri.parse('$_baseUrl/predict');
@@ -101,8 +99,14 @@ class EmotionDetectionService {
           emotions = [jsonData['result'].toString()];
         }
       } else if (jsonData is List) {
-        // If response is a list of emotions
-        emotions = jsonData.cast<String>();
+        // If response is a list of results (e.g., [{"emotion": "Happy", "confidence": 0.5}])
+        for (var item in jsonData) {
+          if (item is Map && item.containsKey('emotion')) {
+            emotions.add(item['emotion'].toString());
+          } else if (item is String) {
+            emotions.add(item);
+          }
+        }
       }
     } catch (e) {
       print('Error parsing emotion response: $e');

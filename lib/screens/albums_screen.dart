@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lifeprint/models/memory_model.dart';
 import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/screens/family_tree_screen.dart';
@@ -20,29 +21,8 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
   String _selectedEmotion = 'All';
   final int _currentIndex = 1;
 
-  // Predefined emotion categories
-  final List<String> _emotionCategories = [
-    'All',
-    'Joy',
-    'Nostalgia',
-    'Sadness',
-    'Excitement',
-    'Love',
-    'Gratitude',
-    'Peace',
-    'Adventure',
-    'Achievement',
-    'Family',
-    'Friendship',
-    'Romance',
-    'Hope',
-    'Pride',
-    'Wonder',
-    'Calm',
-    'Energy',
-    'Reflection',
-    'Celebration',
-  ];
+  // This will be updated dynamically from the database
+  List<String> _emotionCategories = ['All'];
 
   @override
   Widget build(BuildContext context) {
@@ -100,46 +80,66 @@ class _AlbumsScreenState extends State<AlbumsScreen> {
   }
 
   Widget _buildEmotionChips() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _emotionCategories.length,
-        itemBuilder: (context, index) {
-          final emotion = _emotionCategories[index];
-          final isSelected = _selectedEmotion == emotion;
+    final user = FirebaseAuth.instance.currentUser;
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('memories')
+          .where('createdBy', isEqualTo: user?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          final emotions = snapshot.data!.docs
+              .map((doc) => (doc.data() as Map<String, dynamic>)['emotion'] as String?)
+              .where((e) => e != null && e.isNotEmpty)
+              .cast<String>()
+              .toSet()
+              .toList();
+          emotions.sort();
+          _emotionCategories = ['All', ...emotions];
+        }
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(
-                emotion,
-                style: GoogleFonts.poppins(
-                  color: isSelected
-                      ? const Color(0xFF667eea)
-                      : const Color.fromARGB(255, 234, 126, 248),
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        return Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _emotionCategories.length,
+            itemBuilder: (context, index) {
+              final emotion = _emotionCategories[index];
+              final isSelected = _selectedEmotion == emotion;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(
+                    emotion,
+                    style: GoogleFonts.poppins(
+                      color: isSelected
+                          ? const Color(0xFF667eea)
+                          : const Color.fromARGB(255, 234, 126, 248),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedEmotion = emotion;
+                    });
+                  },
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  selectedColor: Colors.white,
+                  checkmarkColor: const Color(0xFF667eea),
+                  side: BorderSide(
+                    color: isSelected
+                        ? Colors.white
+                        : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.3),
+                  ),
                 ),
-              ),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedEmotion = emotion;
-                });
-              },
-              backgroundColor: Colors.white.withOpacity(0.1),
-              selectedColor: Colors.white,
-              checkmarkColor: const Color(0xFF667eea),
-              side: BorderSide(
-                color: isSelected
-                    ? Colors.white
-                    : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.3),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
