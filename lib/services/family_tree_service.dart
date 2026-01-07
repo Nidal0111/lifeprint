@@ -25,8 +25,6 @@ class FamilyTreeService {
 
     try {
       final relationshipId = _firestore.collection('relationships').doc().id;
-
-      // Create relationship document
       final relationship = Relationship(
         id: relationshipId,
         fromUserId: currentUserId!,
