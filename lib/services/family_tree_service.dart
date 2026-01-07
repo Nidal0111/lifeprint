@@ -95,15 +95,16 @@ class FamilyTreeService {
   }) async {
     final familyMembers = <String, FamilyMember>{};
     final visited = <String>{};
-    final queue = <String, int>{}; // userId -> depth
+    final queue = <Map<String, dynamic>>[]; // Using list as queue: { 'id': userId, 'depth': 0, 'relation': 'Self' }
 
-    queue[userId] = 0;
+    queue.add({'id': userId, 'depth': 0, 'relation': 'Self'});
     visited.add(userId);
 
     while (queue.isNotEmpty) {
-      final currentUserId = queue.keys.first;
-      final currentDepth = queue[currentUserId]!;
-      queue.remove(currentUserId);
+      final currentItem = queue.removeAt(0);
+      final String currentUserId = currentItem['id'];
+      final int currentDepth = currentItem['depth'];
+      final String currentRelation = currentItem['relation'];
 
       if (currentDepth >= maxDepth) continue;
 
@@ -121,7 +122,7 @@ class FamilyTreeService {
         final familyMember = FamilyMember(
           id: currentUserId,
           name: userData['Full Name'] ?? 'Unknown',
-          relation: currentDepth == 0 ? 'Self' : 'Family Member',
+          relation: currentRelation,
           linkedUserId: currentUserId,
           profileImageUrl: userData['Profile Image URL'],
           createdAt: DateTime.now(),
@@ -138,7 +139,11 @@ class FamilyTreeService {
 
           if (!visited.contains(relatedUserId) && currentDepth < maxDepth - 1) {
             visited.add(relatedUserId);
-            queue[relatedUserId] = currentDepth + 1;
+            queue.add({
+              'id': relatedUserId,
+              'depth': currentDepth + 1,
+              'relation': relationship.relation,
+            });
           }
         }
       } catch (e) {

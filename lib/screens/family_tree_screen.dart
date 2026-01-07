@@ -190,57 +190,62 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       return Center(
         child: GestureDetector(
           onTap: () => _openUserMemories(member.linkedUserId),
-          child: Container(
-            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-            constraints: BoxConstraints(
-              maxWidth: isSmallScreen ? 140 : 160,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              border: Border.all(color: Colors.blue.shade200),
-              borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
                   radius: avatarRadius,
+                  backgroundColor: Colors.white,
                   backgroundImage: member.profileImageUrl != null
                       ? NetworkImage(member.profileImageUrl!)
                       : null,
                   child: member.profileImageUrl == null
                       ? Text(
                           member.name[0].toUpperCase(),
-                          style: TextStyle(
+                          style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
-                            fontSize: isSmallScreen ? 18 : 20,
+                            fontSize: isSmallScreen ? 20 : 24,
+                            color: const Color(0xFF764ba2),
                           ),
                         )
                       : null,
                 ),
-                SizedBox(height: isSmallScreen ? 6 : 8),
-                Text(
-                  member.name,
-                  style: TextStyle(
-                    fontSize: nameFontSize,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                member.name,
+                style: GoogleFonts.poppins(
+                  fontSize: nameFontSize + 2,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                Text(
-                  member.relation,
-                  style: TextStyle(
-                    fontSize: relationFontSize,
-                    color: Colors.grey.shade600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                RelationshipType.getDisplayName(member.relation),
+                style: GoogleFonts.poppins(
+                  fontSize: relationFontSize + 1,
+                  color: Colors.white.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       );
@@ -279,54 +284,62 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 final member = members[index];
                 return GestureDetector(
                   onTap: () => _openUserMemories(member.linkedUserId),
-                  child: Container(
-                    padding: EdgeInsets.all(cardPadding),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      border: Border.all(color: Colors.blue.shade200),
-                      borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
                           radius: avatarRadius,
+                          backgroundColor: Colors.white,
                           backgroundImage: member.profileImageUrl != null
                               ? NetworkImage(member.profileImageUrl!)
                               : null,
                           child: member.profileImageUrl == null
                               ? Text(
                                   member.name[0].toUpperCase(),
-                                  style: TextStyle(
+                                  style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.bold,
                                     fontSize: isSmallScreen ? 14 : 16,
+                                    color: const Color(0xFF764ba2),
                                   ),
                                 )
                               : null,
                         ),
-                        SizedBox(height: isSmallScreen ? 6 : 8),
-                        Text(
-                          member.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: nameFontSize,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        member.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: nameFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        Text(
-                          member.relation,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: relationFontSize,
-                            color: Colors.grey.shade600,
-                          ),
-                          textAlign: TextAlign.center,
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        RelationshipType.getDisplayName(member.relation),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: relationFontSize,
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 );
               },
@@ -345,13 +358,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ? constraints.maxHeight
             : 400;
 
-        final nodeSeparation = isSmallScreen ? 24.0 : 32.0;
-        final levelSeparation = isSmallScreen ? 44.0 : 56.0;
-        final boundaryMargin = isSmallScreen ? 16.0 : 24.0;
-        final avatarRadius = isSmallScreen ? 16.0 : 20.0;
-        final cardPadding = isSmallScreen ? 6.0 : 8.0;
-        final nameFontSize = isSmallScreen ? 11.0 : 12.0;
-        final relationFontSize = isSmallScreen ? 9.0 : 10.0;
+        final nodeSeparation = isSmallScreen ? 60.0 : 80.0;
+        final levelSeparation = isSmallScreen ? 80.0 : 100.0;
+        final boundaryMargin = isSmallScreen ? 20.0 : 30.0;
+        final avatarRadius = isSmallScreen ? 28.0 : 34.0;
+        final nameFontSize = isSmallScreen ? 11.0 : 13.0;
+        final relationFontSize = isSmallScreen ? 10.0 : 11.0;
 
         return SizedBox(
           width: width,
@@ -363,6 +375,10 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             maxScale: 3.0,
             child: GraphView(
               graph: _graph!,
+              paint: Paint()
+                ..color = Colors.white.withOpacity(0.8)
+                ..strokeWidth = 3.0
+                ..style = PaintingStyle.stroke,
               algorithm: SugiyamaAlgorithm(
                 SugiyamaConfiguration()
                   ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM
@@ -377,54 +393,62 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
                 return GestureDetector(
                   onTap: () => _openUserMemories(member.linkedUserId),
-                  child: Container(
-                    padding: EdgeInsets.all(cardPadding),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      border: Border.all(color: Colors.blue.shade200),
-                      borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 8),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
                           radius: avatarRadius,
+                          backgroundColor: Colors.white,
                           backgroundImage: member.profileImageUrl != null
                               ? NetworkImage(member.profileImageUrl!)
                               : null,
                           child: member.profileImageUrl == null
                               ? Text(
                                   member.name[0].toUpperCase(),
-                                  style: TextStyle(
+                                  style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: isSmallScreen ? 12 : 14,
+                                    fontSize: isSmallScreen ? 18 : 22,
+                                    color: const Color(0xFF764ba2),
                                   ),
                                 )
                               : null,
                         ),
-                        SizedBox(height: isSmallScreen ? 3 : 4),
-                        Text(
-                          member.name,
-                          style: TextStyle(
-                            fontSize: nameFontSize,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        member.name,
+                        style: GoogleFonts.poppins(
+                          fontSize: nameFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        Text(
-                          member.relation,
-                          style: TextStyle(
-                            fontSize: relationFontSize,
-                            color: Colors.grey.shade600,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        RelationshipType.getDisplayName(member.relation),
+                        style: GoogleFonts.poppins(
+                          fontSize: relationFontSize,
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 );
               },
