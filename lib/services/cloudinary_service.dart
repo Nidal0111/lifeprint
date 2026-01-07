@@ -11,10 +11,6 @@ class CloudinaryService {
   static const String imageUploadUrl =
       'https://api.cloudinary.com/v1_1/$cloudName/image/upload';
 
-  // ===========================================================================
-  // ✅ UNIVERSAL IMAGE UPLOAD (WEB + MOBILE)
-  // ===========================================================================
-
   static Future<String> uploadImage({
     File? file, // Android / iOS
     Uint8List? bytes, // Web
@@ -29,17 +25,14 @@ class CloudinaryService {
 
     request.fields['upload_preset'] = uploadPreset;
 
-    // ✅ IMPORTANT: public_id WITHOUT extension
     request.fields['public_id'] =
         'lifeprint_image/img_${DateTime.now().millisecondsSinceEpoch}';
 
     if (file != null) {
-      // 📱 Mobile
       request.files.add(
         await http.MultipartFile.fromPath('file', file.path),
       );
     } else {
-      // 🌐 Web
       request.files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -54,17 +47,13 @@ class CloudinaryService {
     final data = jsonDecode(responseBody);
 
     if (response.statusCode == 200) {
-      return data['secure_url']; // ✅ always use secure_url
+      return data['secure_url']; 
     } else {
       throw Exception(
         'Cloudinary upload failed: ${data['error'] ?? response.statusCode}',
       );
     }
   }
-
-  // ===========================================================================
-  // IMAGE UPLOAD WITH TRANSFORMATIONS (MOBILE ONLY)
-  // ===========================================================================
 
   static Future<String?> uploadFileWithTransformations(
     File file, {
@@ -80,7 +69,6 @@ class CloudinaryService {
       final resourceType = _getResourceType(extension);
 
       if (resourceType != 'image') {
-        // fallback to normal upload
         return await uploadImage(file: file);
       }
 
@@ -116,10 +104,6 @@ class CloudinaryService {
       return null;
     }
   }
-
-  // ===========================================================================
-  // HELPERS (UNCHANGED, CLEAN)
-  // ===========================================================================
 
   static bool get isWeb => kIsWeb;
 

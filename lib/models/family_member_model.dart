@@ -19,7 +19,6 @@ class FamilyMember {
     required this.createdBy,
   });
 
-  // Convert a FamilyMember object into a Map object
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -32,7 +31,6 @@ class FamilyMember {
     };
   }
 
-  // Create a FamilyMember object from a Map object
   factory FamilyMember.fromMap(Map<String, dynamic> map) {
     return FamilyMember(
       id: map['id'] as String,
@@ -45,7 +43,6 @@ class FamilyMember {
     );
   }
 
-  // Create a FamilyMember object from a Firestore DocumentSnapshot
   factory FamilyMember.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return FamilyMember(
@@ -61,7 +58,6 @@ class FamilyMember {
     );
   }
 
-  // Copy method for immutable updates
   FamilyMember copyWith({
     String? id,
     String? name,
@@ -128,7 +124,6 @@ class Relationship {
     required this.createdAt,
   });
 
-  // Convert a Relationship object into a Map object
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -139,7 +134,6 @@ class Relationship {
     };
   }
 
-  // Create a Relationship object from a Map object
   factory Relationship.fromMap(Map<String, dynamic> map) {
     return Relationship(
       id: map['id'] as String,
@@ -150,7 +144,6 @@ class Relationship {
     );
   }
 
-  // Create a Relationship object from a Firestore DocumentSnapshot
   factory Relationship.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Relationship(
@@ -191,7 +184,6 @@ class Relationship {
   }
 }
 
-// Predefined relationship types
 class RelationshipType {
   static const String parent = 'parent';
   static const String child = 'child';

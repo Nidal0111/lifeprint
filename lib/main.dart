@@ -183,7 +183,6 @@ class MyApp extends StatelessWidget {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
-                        // Restart the app
                         main();
                       },
                       child: const Text('Retry'),

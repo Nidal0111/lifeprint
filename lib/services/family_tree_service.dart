@@ -8,7 +8,6 @@ class FamilyTreeService {
 
   String? get currentUserId => _auth.currentUser?.uid;
 
-  /// Add a family member relationship
   Future<String> addFamilyMember({
     required String name,
     required String relation,
@@ -38,14 +37,10 @@ class FamilyTreeService {
           .doc(relationshipId)
           .set(relationship.toMap());
 
-      // Add to user's relationships array
       await _firestore.collection('users').doc(currentUserId!).update({
         'relationships': FieldValue.arrayUnion([relationshipId]),
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp() ,
       });
-
-      // Ensure reciprocal record can be inferred if needed later
-      // (Not creating inverse automatically to keep logic explicit)
 
       print('Family member added successfully with ID: $relationshipId');
       return relationshipId;
@@ -55,7 +50,6 @@ class FamilyTreeService {
     }
   }
 
-  /// Get all relationships for a user
   Future<List<Relationship>> getUserRelationships(String userId) async {
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
@@ -86,14 +80,13 @@ class FamilyTreeService {
     }
   }
 
-  /// Recursively fetch family members to a specified depth
   Future<Map<String, FamilyMember>> getFamilyTree(
     String userId, {
     int maxDepth = 3,
   }) async {
     final familyMembers = <String, FamilyMember>{};
     final visited = <String>{};
-    final queue = <Map<String, dynamic>>[]; // Using list as queue: { 'id': userId, 'depth': 0, 'relation': 'Self' }
+    final queue = <Map<String, dynamic>>[]; 
 
     queue.add({'id': userId, 'depth': 0, 'relation': 'Self'});
     visited.add(userId);
@@ -107,7 +100,6 @@ class FamilyTreeService {
       if (currentDepth >= maxDepth) continue;
 
       try {
-        // Get user data
         final userDoc = await _firestore
             .collection('users')
             .doc(currentUserId)
@@ -116,7 +108,6 @@ class FamilyTreeService {
 
         final userData = userDoc.data() as Map<String, dynamic>;
 
-        // Create family member from user data
         final familyMember = FamilyMember(
           id: currentUserId,
           name: userData['Full Name'] ?? 'Unknown',
@@ -129,7 +120,6 @@ class FamilyTreeService {
 
         familyMembers[currentUserId] = familyMember;
 
-        // Get relationships for this user
         final relationships = await getUserRelationships(currentUserId);
 
         for (final relationship in relationships) {
@@ -152,15 +142,13 @@ class FamilyTreeService {
 
     return familyMembers;
   }
-
-  /// Get relationships for building the tree structure
   Future<List<Relationship>> getFamilyRelationships(
     String userId, {
     int maxDepth = 3,
   }) async {
     final allRelationships = <Relationship>[];
     final visited = <String>{};
-    final queue = <String, int>{}; // userId -> depth
+    final queue = <String, int>{}; 
 
     queue[userId] = 0;
     visited.add(userId);
@@ -192,15 +180,12 @@ class FamilyTreeService {
 
     return allRelationships;
   }
-
-  /// Delete a family member relationship
   Future<void> deleteFamilyMember(String relationshipId) async {
     if (currentUserId == null) {
       throw Exception("User not logged in.");
     }
 
     try {
-      // Get the relationship to find the fromUserId
       final relationshipDoc = await _firestore
           .collection('relationships')
           .doc(relationshipId)
@@ -212,13 +197,11 @@ class FamilyTreeService {
 
       final relationship = Relationship.fromDocument(relationshipDoc);
 
-      // Remove from user's relationships array
       await _firestore.collection('users').doc(relationship.fromUserId).update({
         'relationships': FieldValue.arrayRemove([relationshipId]),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Delete the relationship document
       await _firestore.collection('relationships').doc(relationshipId).delete();
 
       print('Family member deleted successfully: $relationshipId');
@@ -227,13 +210,10 @@ class FamilyTreeService {
       rethrow;
     }
   }
-
-  /// Search for users by name or email
   Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     try {
       if (query.trim().isEmpty) return [];
 
-      // Search by name
       final nameQuery = await _firestore
           .collection('users')
           .where('Full Name', isGreaterThanOrEqualTo: query)
@@ -241,7 +221,6 @@ class FamilyTreeService {
           .limit(10)
           .get();
 
-      // Search by email
       final emailQuery = await _firestore
           .collection('users')
           .where('Email Address', isGreaterThanOrEqualTo: query)
@@ -252,7 +231,6 @@ class FamilyTreeService {
       final results = <Map<String, dynamic>>[];
       final seenIds = <String>{};
 
-      // Add name results
       for (final doc in nameQuery.docs) {
         final data = doc.data();
         final userId = doc.id;
@@ -268,7 +246,6 @@ class FamilyTreeService {
         }
       }
 
-      // Add email results
       for (final doc in emailQuery.docs) {
         final data = doc.data();
         final userId = doc.id;
@@ -284,7 +261,6 @@ class FamilyTreeService {
         }
       }
 
-      // Exclude current user from search results
       final filtered = results
           .where((u) => u['id'] != currentUserId)
           .toList(growable: false);
@@ -294,8 +270,6 @@ class FamilyTreeService {
       rethrow;
     }
   }
-
-  /// Get user's family tree statistics
   Future<Map<String, int>> getFamilyTreeStats(String userId) async {
     try {
       final familyMembers = await getFamilyTree(userId, maxDepth: 3);

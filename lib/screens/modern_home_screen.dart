@@ -37,7 +37,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
   final EventService _eventService = EventService();
   List<EventModel> _todaysEvents = [];
 
-  // This will be updated dynamically from the database
   List<String> _filterOptions = ['All'];
 
   @override
@@ -75,7 +74,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         });
       }
     } catch (e) {
-      // Handle error silently for now
     }
   }
 
@@ -111,15 +109,10 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar
               _buildCustomAppBar(context),
-              // Today's Events Section
               if (_todaysEvents.isNotEmpty) _buildTodaysEventsSection(),
-              // Search and Filter Section
               _buildSearchSection(context),
-              // AI Demos row (UI only)
               _buildAIDemosRow(context),
-              // Memories List
               Expanded(child: _buildMemoriesList(displayUserId)),
             ],
           ),
@@ -213,7 +206,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left: Time and Date + Greeting
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +247,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           ),
           Row(
             children: [
-              // Profile Button
               Container(
                 width: 40,
                 height: 40,
@@ -339,7 +330,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
               ),
               const SizedBox(width: 12),
-              // Logout Button
               Container(
                 width: 40,
                 height: 40,
@@ -373,7 +363,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildLiveClock() {
     return StreamBuilder<DateTime>(
-      // Tick every second for exact time
       stream: Stream<DateTime>.periodic(
         const Duration(seconds: 1),
         (_) => DateTime.now(),
@@ -410,7 +399,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   String _formatTime(DateTime dt) {
     int hour = dt.hour % 12;
-    hour = hour == 0 ? 12 : hour; // 0 or 12 -> 12
+    hour = hour == 0 ? 12 : hour; 
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     final h = hour.toString();
     final m = dt.minute.toString().padLeft(2, '0');
@@ -457,7 +446,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Prompt
               Text(
                 'Think back to...',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -466,7 +454,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              // Search Bar
               Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -500,7 +487,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              // Filter Chips
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('memories')
@@ -517,7 +503,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                     emotions.sort();
                     _filterOptions = ['All', ...emotions];
                     
-                    // Reset filter if current one is no longer available
                     if (!_filterOptions.contains(_selectedFilter)) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) setState(() => _selectedFilter = 'All');
@@ -597,7 +582,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots().map((snapshot) {
         final docs = snapshot.docs;
-        // Sort docs by createdAt in memory
         docs.sort((a, b) {
           final aData = a.data();
           final bData = b.data();
@@ -738,10 +722,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Media Preview
                 _buildGridMediaPreview(memory, isLocked),
 
-                // Gradient Overlay for Title
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -771,7 +753,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                   ),
                 ),
 
-                // Lock Overlay
                 if (isLocked)
                   Container(
                     color: Colors.black.withOpacity(0.4),

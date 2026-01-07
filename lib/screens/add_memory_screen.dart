@@ -85,7 +85,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     super.dispose();
   }
 
-  // ---------------- UPLOAD MEMORY ----------------
 
   Future<void> _uploadMemory() async {
     if (!_formKey.currentState!.validate()) return;
@@ -102,13 +101,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     try {
       final String cloudinaryUrl;
       if (kIsWeb) {
-        // Web: _selectedFile is Uint8List
         cloudinaryUrl = await CloudinaryService.uploadImage(
           bytes: _selectedFile,
           fileName: _selectedFileName,
         );
       } else {
-        // Mobile: _selectedFile is File
         cloudinaryUrl = await CloudinaryService.uploadImage(
           file: _selectedFile,
         );
@@ -118,22 +115,18 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         throw Exception('Cloudinary upload failed');
       }
 
-      // Determine emotion logic
       String finalEmotion = 'Neutral';
       
       if (_selectedType == MemoryType.photo) {
         if (_selectedEmotion != null) {
-          // User manually selected an emotion, prioritize it
           finalEmotion = _selectedEmotion!;
         } else {
-          // Auto-detect if no manual selection
           final emotions = await _emotionService.detectEmotions(_selectedFile);
           if (emotions.isNotEmpty) {
             finalEmotion = emotions.first;
           }
         }
       } else {
-        // Non-photo types: use manual selection or default
         finalEmotion = _selectedEmotion ?? 'Neutral';
       }
 
@@ -195,9 +188,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar
               _buildCustomAppBar(context),
-              // Form Content
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20.0),
@@ -210,34 +201,27 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Media Selection Section
                             _buildMediaSelectionSection(),
                             const SizedBox(height: 24),
 
-                            // Memory Type Selection
                             _buildTypeSelectionSection(),
                             const SizedBox(height: 24),
 
-                            // Title Input
                             _buildTitleInput(),
                             const SizedBox(height: 24),
 
-                            // Release Date Input
                             _buildReleaseDateInput(),
                             const SizedBox(height: 24),
 
-                            // Emotion Tags (UI-only)
                             if (_selectedType != MemoryType.photo) ...[
                               _buildEmotionSelectionSection(),
                               const SizedBox(height: 24),
                             ],
                             const SizedBox(height: 24),
 
-                            // Link Family Members (UI-only)
                             _buildLinkFamilyMembersSection(),
                             const SizedBox(height: 32),
 
-                            // Upload Button
                             _buildUploadButton(),
                           ],
                         ),
@@ -258,7 +242,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          // Back Button
           Container(
             width: 40,
             height: 40,
@@ -284,7 +267,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
             ),
           ),
           const Spacer(),
-          // Title
           Text(
             'Add Memory',
             style: GoogleFonts.poppins(
@@ -294,7 +276,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
             ),
           ),
           const Spacer(),
-          // Placeholder for symmetry
           const SizedBox(width: 40),
         ],
       ),
@@ -335,7 +316,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
           ),
           const SizedBox(height: 16),
 
-          // Selected File Preview
           if (_selectedFile != null) ...[
             Container(
               width: double.infinity,
@@ -390,7 +370,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
             const SizedBox(height: 16),
           ],
 
-          // Media Selection Buttons
           Row(
             children: [
               Expanded(
