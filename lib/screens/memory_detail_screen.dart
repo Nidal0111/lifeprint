@@ -6,6 +6,7 @@ import 'package:lifeprint/models/memory_model.dart';
 import 'package:video_player/video_player.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:lifeprint/screens/edit_memory_screen.dart';
+import 'package:lifeprint/services/memory_service.dart';
 
 class MemoryDetailScreen extends StatefulWidget {
   final MemoryModel memory;
@@ -661,12 +662,7 @@ Widget _buildEmotionsSection() {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('memories')
-          .doc(widget.memory.id)
-          .delete();
+      await MemoryService().deleteMemory(widget.memory.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

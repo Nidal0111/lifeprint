@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
+import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/models/memory_model.dart';
 
 class EditMemoryScreen extends StatefulWidget {
@@ -779,23 +780,16 @@ Future<void> _selectImage() async {
       }
 
       // Update memory in Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('memories')
-          .doc(widget.memory.id)
-          .update({
-            'title': _titleController.text.trim(),
-            'type': _selectedType.name,
-            'cloudinaryUrl': cloudinaryUrl,
-            'transcript': _transcriptController.text.trim().isEmpty
-                ? null
-                : _transcriptController.text.trim(),
-            'emotion': _emotion,
-
-            'releaseDate': _releaseDate?.toIso8601String(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      await MemoryService().updateMemory(widget.memory.id, {
+        'title': _titleController.text.trim(),
+        'type': _selectedType.name,
+        'cloudinaryUrl': cloudinaryUrl,
+        'transcript': _transcriptController.text.trim().isEmpty
+            ? null
+            : _transcriptController.text.trim(),
+        'emotion': _emotion,
+        'releaseDate': _releaseDate?.toIso8601String(),
+      });
 
       _showSnackBar('Memory updated successfully!', isError: false);
 
@@ -848,12 +842,7 @@ Future<void> _selectImage() async {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('memories')
-          .doc(widget.memory.id)
-          .delete();
+      await MemoryService().deleteMemory(widget.memory.id);
 
       _showSnackBar('Memory deleted successfully!', isError: false);
 
