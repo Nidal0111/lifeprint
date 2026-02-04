@@ -10,7 +10,7 @@ import 'package:lifeprint/screens/notes_calendar_screen.dart';
 import 'package:lifeprint/screens/albums_screen.dart';
 import 'package:lifeprint/screens/family_tree_screen.dart';
 import 'package:lifeprint/models/memory_model.dart';
-import 'package:lifeprint/model s/event_model.dart';
+import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/services/event_service.dart';
 import 'package:lifeprint/screens/speech_to_text_screen.dart';
 import 'package:lifeprint/screens/legacy_chatbot_screen.dart';
