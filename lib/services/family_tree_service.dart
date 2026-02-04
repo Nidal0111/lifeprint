@@ -209,7 +209,7 @@ class FamilyTreeService {
       print('Error deleting family member: $e');
       rethrow;
     }
-  }
+  } 
   Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     try {
       if (query.trim().isEmpty) return [];

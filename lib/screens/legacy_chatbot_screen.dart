@@ -6,6 +6,8 @@ import 'package:lifeprint/screens/memory_detail_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lifeprint/models/memory_model.dart';
 import 'dart:convert';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
 
 class LegacyChatbotScreen extends StatefulWidget {
   const LegacyChatbotScreen({super.key});
@@ -17,10 +19,14 @@ class LegacyChatbotScreen extends StatefulWidget {
 class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
   final List<_Message> _messages = <_Message>[];
   final TextEditingController _controller = TextEditingController();
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
+    _initSpeech();
     // Add initial greeting
     _messages.add(
       _Message(
@@ -29,6 +35,44 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
         isBot: true,
       ),
     );
+  }
+
+  /// Initialize speech recognition service
+  void _initSpeech() async {
+    try {
+      _speechEnabled = await _speechToText.initialize();
+      setState(() {});
+    } catch (e) {
+      debugPrint('Speech initialization failed: $e');
+    }
+  }
+
+  /// Start listening to microphone input
+  void _startListening() async {
+    if (!_speechEnabled) return;
+    try {
+      await _speechToText.listen(onResult: _onSpeechResult);
+      setState(() {
+        _isListening = true;
+      });
+    } catch (e) {
+      debugPrint('Error starting speech listen: $e');
+    }
+  }
+
+  /// Stop listening
+  void _stopListening() async {
+    await _speechToText.stop();
+    setState(() {
+      _isListening = false;
+    });
+  }
+
+  /// Update text controller with recognized speech
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    setState(() {
+      _controller.text = result.recognizedWords;
+    });
   }
 
   final ChatbotService _chatbotService = ChatbotService();
@@ -63,7 +107,7 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        'Legacy Chatbot (UI only)',
+                        'LifePrint Assistant',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 20,
@@ -157,8 +201,10 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                         controller: _controller,
                         style: GoogleFonts.poppins(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: 'Type a message',
-                          hintStyle: GoogleFonts.poppins(color: Colors.white70),
+                          hintText: _isListening ? 'Listening...' : 'Type a message',
+                          hintStyle: GoogleFonts.poppins(
+                            color: _isListening ? Colors.yellowAccent : Colors.white70,
+                          ),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
                           border: OutlineInputBorder(
@@ -171,6 +217,18 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                           ),
                         ),
                         onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Microphone Button
+                    CircleAvatar(
+                      backgroundColor: _isListening ? Colors.redAccent : Colors.white.withOpacity(0.2),
+                      child: IconButton(
+                        icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
+                        color: Colors.white,
+                        onPressed: _speechEnabled
+                            ? (_isListening ? _stopListening : _startListening)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -194,6 +252,11 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
   void _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
+    if (_isListening) {
+      await _speechToText.stop();
+      setState(() => _isListening = false);
+    }
 
     setState(() {
       _messages.add(_Message(text: text, isBot: false));

@@ -7,7 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 
 class EmotionDetectionService {
-  static const String _baseUrl = 'https://lifeprint.onrender.com';
+  // 🚀 LOCAL NETWORK CONFIGURATION
+  // 1. Ensure phone and laptop are on the SAME Wi-Fi.
+  // 2. Python server host must be '0.0.0.0'.
+  static const String _baseUrl = 'http://192.168.1.34:5000'; 
 
   /// Detect emotions from an image
   Future<List<String>> detectEmotions(dynamic imageFile) async {
@@ -48,12 +51,19 @@ class EmotionDetectionService {
         }
       }
 
+      // ✅ ADD NGROK BYPASS HEADER
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      });
+
       // -------- SEND REQUEST --------
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 30),
       );
 
       final responseBody = await streamedResponse.stream.bytesToString();
+      debugPrint('Emotion API Response: $responseBody'); // 🔍 DEBUG LOG
 
       if (streamedResponse.statusCode == 200) {
         final decoded = json.decode(responseBody);
@@ -70,30 +80,46 @@ class EmotionDetectionService {
     }
   }
 
-  /// Extract emotion labels safely
+  /// Extract emotion labels safely (Handles multiple Python API formats)
   List<String> _extractEmotionsFromResponse(dynamic jsonData) {
     List<String> emotions = [];
 
-    // Case 1: Face detected -> List response
+    // Format A: List of objects (DeepFace style) [{"emotion": "happy"}, ...]
     if (jsonData is List) {
       for (var item in jsonData) {
         if (item is Map && item.containsKey('emotion')) {
           emotions.add(item['emotion'].toString());
+        } else if (item is String) {
+          emotions.add(item);
         }
       }
     }
 
-    // Case 2: No face detected
-    else if (jsonData is Map && jsonData.containsKey('message')) {
-      print(jsonData['message']);
-      emotions.add('Neutral');
+    // Format B: Map with key {"emotions": ["happy", "sad"]}
+    else if (jsonData is Map) {
+      if (jsonData.containsKey('emotions') && jsonData['emotions'] is List) {
+        emotions.addAll(List<String>.from(jsonData['emotions']));
+      } 
+      // Format C: Map with single key {"emotion": "happy"}
+      else if (jsonData.containsKey('emotion')) {
+        emotions.add(jsonData['emotion'].toString());
+      }
+      // Format D: Map with prediction key {"prediction": "happy"}
+      else if (jsonData.containsKey('prediction')) {
+        emotions.add(jsonData['prediction'].toString());
+      }
     }
 
-    // Fallback
+    // Fallback: If nothing was found
     if (emotions.isEmpty) {
+      debugPrint('No emotions found in JSON, returning Neutral');
       emotions.add('Neutral');
     }
 
-    return emotions.toSet().toList();
+    // Normalize to Capital Case (e.g., happy -> Happy)
+    return emotions.map((e) {
+      if (e.isEmpty) return 'Neutral';
+      return e[0].toUpperCase() + e.substring(1).toLowerCase();
+    }).toSet().toList();
   }
 }

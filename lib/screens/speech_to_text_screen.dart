@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
 
 class SpeechToTextScreen extends StatefulWidget {
   const SpeechToTextScreen({super.key});
@@ -10,8 +15,14 @@ class SpeechToTextScreen extends StatefulWidget {
 
 class _SpeechToTextScreenState extends State<SpeechToTextScreen>
     with TickerProviderStateMixin {
-  bool _isRecording = false;
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListening = false;
   String _transcript = '';
+  double _soundLevel = 0.0;
+  String _lastStatus = '';
+  String _lastError = '';
+  Timer? _webLevelSimulationTimer;
 
   late AnimationController _pulseController;
 
@@ -24,12 +35,110 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
       lowerBound: 0.9,
       upperBound: 1.1,
     )..repeat(reverse: true);
+    _initSpeech();
   }
 
   @override
   void dispose() {
+    _webLevelSimulationTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  /// Initialize speech recognition service
+  void _initSpeech() async {
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (e) => debugPrint('Init error: $e'),
+        onStatus: (s) => debugPrint('Init status: $s'),
+      );
+      debugPrint('Speech initialized: $_speechEnabled');
+      setState(() {});
+    } catch (e) {
+      debugPrint('Speech initialization failed: $e');
+      setState(() => _lastError = 'Init failed: $e');
+    }
+  }
+
+  /// Start listening
+  void _startListening() async {
+    if (!_speechEnabled) {
+      debugPrint('Speech not enabled!');
+      return;
+    }
+    setState(() {
+      _lastError = ''; // Clear previous errors
+      _transcript = '';
+    });
+    
+    try {
+      debugPrint('Starting listen...');
+      // Use simpler listen call that works in Legacy Chatbot
+      await _speechToText.listen(
+        onResult: _onSpeechResult,
+        onSoundLevelChange: (level) => {}, // Required for some platforms to stay alive
+        partialResults: true, // Crucial for Web to show text while speaking
+        listenMode: ListenMode.dictation,
+        cancelOnError: true,
+      );
+      
+      setState(() {
+        _isListening = true;
+      });
+
+      // On Web, onSoundLevelChange is often not supported, so we simulate it
+      if (kIsWeb) {
+        _webLevelSimulationTimer?.cancel();
+        _webLevelSimulationTimer = Timer.periodic(
+          const Duration(milliseconds: 100),
+          (timer) {
+            if (_isListening) {
+              final random = Random();
+              setState(() {
+                _soundLevel = -10.0 + random.nextDouble() * 20.0;
+              });
+            }
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('Error starting speech listen: $e');
+      setState(() => _lastError = 'Start failed: $e');
+    }
+  }
+
+  /// Stop listening
+  void _stopListening() async {
+    await _speechToText.stop();
+    _webLevelSimulationTimer?.cancel();
+    setState(() {
+      _isListening = false;
+      _soundLevel = 0.0;
+      _lastStatus = 'Stopped';
+    });
+  }
+
+  /// Callback for speech results
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    debugPrint('Got partial result: ${result.recognizedWords}');
+    setState(() {
+      _transcript = result.recognizedWords;
+    });
+  }
+
+  /// Callback for sound level changes (used for visualization)
+  void _onSoundLevel(double level) {
+    setState(() {
+      _soundLevel = level;
+    });
+  }
+
+  void _toggleRecording() {
+    if (_isListening) {
+      _stopListening();
+    } else {
+      _startListening();
+    }
   }
 
   @override
@@ -60,7 +169,7 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                     ),
                     Expanded(
                       child: Text(
-                        'Speech to Text (UI only)',
+                        'Speech to Text',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 20,
@@ -78,9 +187,9 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
-                      // Waveform Placeholder
+                      // Status Area
                       Container(
-                        height: 160,
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(16),
@@ -88,19 +197,32 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                             color: Colors.white.withOpacity(0.2),
                           ),
                         ),
-                        child: Center(
-                          child: Text(
-                            'Waveform Animation (placeholder)',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white.withOpacity(0.8),
+                        child: Column(
+                          children: [
+                            Text(
+                              _isListening ? 'Listening...' : 'Tap Record to speak',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
+                            if (_lastError.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'Error: $_lastError',
+                                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 24),
                       // Transcript Area
                       Expanded(
                         child: Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.08),
@@ -112,11 +234,12 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                           child: SingleChildScrollView(
                             child: Text(
                               _transcript.isEmpty
-                                  ? 'Transcript will appear here (UI only)'
+                                  ? 'Transcript will appear here...'
                                   : _transcript,
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 height: 1.5,
+                                fontSize: 18,
                               ),
                             ),
                           ),
@@ -124,15 +247,13 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                       ),
                       const SizedBox(height: 24),
                       // Recorder Button
-                      ScaleTransition(
-                        scale: _pulseController,
-                        child: FloatingActionButton.extended(
-                          onPressed: _toggleRecording,
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                          label: Text(_isRecording ? 'Stop' : 'Record'),
-                        ),
+                      FloatingActionButton.extended(
+                        onPressed: _speechEnabled ? _toggleRecording : null,
+                        backgroundColor:
+                            _isListening ? Colors.redAccent : Colors.black,
+                        foregroundColor: Colors.white,
+                        icon: Icon(_isListening ? Icons.stop : Icons.mic),
+                        label: Text(_isListening ? 'Stop' : 'Record'),
                       ),
                     ],
                   ),
@@ -144,16 +265,44 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
       ),
     );
   }
+}
 
-  void _toggleRecording() {
-    setState(() {
-      _isRecording = !_isRecording;
-      if (_isRecording) {
-        _transcript +=
-            (_transcript.isEmpty ? '' : '\n') + '[Recording started…]';
-      } else {
-        _transcript += '\n[Recording stopped]';
-      }
-    });
+class _SoundBar extends StatelessWidget {
+  final int index;
+  final double level;
+
+  const _SoundBar({required this.index, required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    // Generate height based on sound level and random variation for visualization
+    final random = Random(index);
+    // speech_to_text often returns level in range -10 roughly to 10? documentation varies.
+    // We'll normalize it to a base height + dynamic component.
+    
+    // Base height
+    double height = 20.0;
+    
+    // Add dynamic component if level is significant. Assuming level is often > -10 when talking.
+    // If level is really dB, it might be -100 to 0. 
+    // Let's assume some variability. If we use built-in Random for now it will look active.
+    if (level > -50) { // arbitrary threshold showing activity
+        double boost = (level + 50) * 0.5; // Scale it
+        height += boost * random.nextDouble();
+    }
+    
+    // Clamp height
+    height = height.clamp(10.0, 80.0);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: 8,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
   }
 }
