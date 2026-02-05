@@ -43,8 +43,8 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   String? _selectedEmotion;
 
   final List<String> _emotionList = [
-    'Joy', 'Sadness', 'Anger', 'Disgust', 'Fear', 'Surprise', 'Neutral',
-    'Love', 'Gratitude', 'Peace', 'Excitement', 'Pride'
+    'Happy', 'Sad', 'Angry', 'Surprise', 'Neutral',
+    'Joy', 'Disgust', 'Fear', 'Love', 'Gratitude', 'Peace', 'Excitement', 'Pride'
   ];
 
   late AnimationController _fadeController;

@@ -10,12 +10,12 @@ class EmotionDetectionService {
   // 🚀 LOCAL NETWORK CONFIGURATION
   // 1. Ensure phone and laptop are on the SAME Wi-Fi.
   // 2. Python server host must be '0.0.0.0'.
-  static const String _baseUrl = 'http://192.168.1.34:5000'; 
+  static const String _baseUrl = 'http://192.168.1.38:8000'; 
 
   /// Detect emotions from an image
   Future<List<String>> detectEmotions(dynamic imageFile) async {
     try {
-      final uri = Uri.parse('$_baseUrl/predict');
+      final uri = Uri.parse('$_baseUrl/predict-emotion/');
 
       final request = http.MultipartRequest('POST', uri);
 
@@ -29,7 +29,7 @@ class EmotionDetectionService {
         if (imageFile is Uint8List) {
           request.files.add(
             http.MultipartFile.fromBytes(
-              'image',
+              'file',
               imageFile,
               filename: 'image.jpg',
               contentType: http_parser.MediaType('image', 'jpeg'),
@@ -42,7 +42,7 @@ class EmotionDetectionService {
         if (imageFile is File) {
           request.files.add(
             await http.MultipartFile.fromPath(
-              'image',
+              'file',
               imageFile.path,
             ),
           );
@@ -84,29 +84,28 @@ class EmotionDetectionService {
   List<String> _extractEmotionsFromResponse(dynamic jsonData) {
     List<String> emotions = [];
 
+    // Format for current FastAPI app.py: {"emotion": "Happy", "confidence": 0.95}
+    if (jsonData is Map) {
+      if (jsonData.containsKey('emotion')) {
+        emotions.add(jsonData['emotion'].toString());
+      }
+      // Format B: Map with key {"emotions": ["happy", "sad"]}
+      else if (jsonData.containsKey('emotions') && jsonData['emotions'] is List) {
+        emotions.addAll(List<String>.from(jsonData['emotions']));
+      } 
+      // Format D: Map with prediction key {"prediction": "happy"}
+      else if (jsonData.containsKey('prediction')) {
+        emotions.add(jsonData['prediction'].toString());
+      }
+    }
     // Format A: List of objects (DeepFace style) [{"emotion": "happy"}, ...]
-    if (jsonData is List) {
+    else if (jsonData is List) {
       for (var item in jsonData) {
         if (item is Map && item.containsKey('emotion')) {
           emotions.add(item['emotion'].toString());
         } else if (item is String) {
           emotions.add(item);
         }
-      }
-    }
-
-    // Format B: Map with key {"emotions": ["happy", "sad"]}
-    else if (jsonData is Map) {
-      if (jsonData.containsKey('emotions') && jsonData['emotions'] is List) {
-        emotions.addAll(List<String>.from(jsonData['emotions']));
-      } 
-      // Format C: Map with single key {"emotion": "happy"}
-      else if (jsonData.containsKey('emotion')) {
-        emotions.add(jsonData['emotion'].toString());
-      }
-      // Format D: Map with prediction key {"prediction": "happy"}
-      else if (jsonData.containsKey('prediction')) {
-        emotions.add(jsonData['prediction'].toString());
       }
     }
 
