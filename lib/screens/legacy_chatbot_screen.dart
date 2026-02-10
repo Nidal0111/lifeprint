@@ -40,8 +40,25 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
   /// Initialize speech recognition service
   void _initSpeech() async {
     try {
-      _speechEnabled = await _speechToText.initialize();
-      setState(() {});
+      _speechEnabled = await _speechToText.initialize(
+        onError: (e) {
+          debugPrint('Speech error: ${e.errorMsg}');
+          if (mounted) setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (mounted) {
+            setState(() {
+              if (status == 'notListening' || status == 'done') {
+                _isListening = false;
+              } else if (status == 'listening') {
+                _isListening = true;
+              }
+            });
+          }
+        },
+      );
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Speech initialization failed: $e');
     }
@@ -49,12 +66,21 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
 
   /// Start listening to microphone input
   void _startListening() async {
-    if (!_speechEnabled) return;
+    if (!_speechEnabled) {
+      _initSpeech();
+      return;
+    }
     try {
-      await _speechToText.listen(onResult: _onSpeechResult);
-      setState(() {
-        _isListening = true;
-      });
+      await _speechToText.listen(
+        onResult: _onSpeechResult,
+        partialResults: true,
+        listenMode: ListenMode.dictation,
+      );
+      if (mounted) {
+        setState(() {
+          _isListening = true;
+        });
+      }
     } catch (e) {
       debugPrint('Error starting speech listen: $e');
     }
@@ -63,16 +89,20 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
   /// Stop listening
   void _stopListening() async {
     await _speechToText.stop();
-    setState(() {
-      _isListening = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+      });
+    }
   }
 
   /// Update text controller with recognized speech
   void _onSpeechResult(SpeechRecognitionResult result) {
-    setState(() {
-      _controller.text = result.recognizedWords;
-    });
+    if (mounted) {
+      setState(() {
+        _controller.text = result.recognizedWords;
+      });
+    }
   }
 
   final ChatbotService _chatbotService = ChatbotService();
@@ -201,9 +231,13 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                         controller: _controller,
                         style: GoogleFonts.poppins(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: _isListening ? 'Listening...' : 'Type a message',
+                          hintText: _isListening
+                              ? 'Listening...'
+                              : 'Type a message',
                           hintStyle: GoogleFonts.poppins(
-                            color: _isListening ? Colors.yellowAccent : Colors.white70,
+                            color: _isListening
+                                ? Colors.yellowAccent
+                                : Colors.white70,
                           ),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.05),
@@ -222,7 +256,9 @@ class _LegacyChatbotScreenState extends State<LegacyChatbotScreen> {
                     const SizedBox(width: 8),
                     // Microphone Button
                     CircleAvatar(
-                      backgroundColor: _isListening ? Colors.redAccent : Colors.white.withOpacity(0.2),
+                      backgroundColor: _isListening
+                          ? Colors.redAccent
+                          : Colors.white.withOpacity(0.2),
                       child: IconButton(
                         icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
                         color: Colors.white,

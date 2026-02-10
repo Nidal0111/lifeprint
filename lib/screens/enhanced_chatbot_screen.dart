@@ -50,23 +50,37 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
 
   void _initializeSpeech() async {
     _speech = stt.SpeechToText();
-    _speechAvailable = await _speech.initialize(
-      onStatus: (status) {
-        print('Speech recognition status: $status');
-        if (status == 'notListening') {
-          setState(() => _isListening = false);
-          _pulseController.stop();
-        }
-      },
-      onError: (error) {
-        print('Speech recognition error: $error');
-        setState(() => _isListening = false);
-        _pulseController.stop();
-      },
-    );
+    try {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          debugPrint('Speech recognition status: $status');
+          if (mounted) {
+            setState(() {
+              if (status == 'notListening' || status == 'done') {
+                _isListening = false;
+                _pulseController.stop();
+              } else if (status == 'listening') {
+                _isListening = true;
+                _pulseController.repeat(reverse: true);
+              }
+            });
+          }
+        },
+        onError: (error) {
+          debugPrint('Speech recognition error: $error');
+          if (mounted) {
+            setState(() => _isListening = false);
+            _pulseController.stop();
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Speech initialization exception: $e');
+      _speechAvailable = false;
+    }
 
     if (!_speechAvailable) {
-      print('Speech recognition not available');
+      debugPrint('Speech recognition not available');
     }
   }
 
@@ -188,7 +202,10 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
               // Speech recognition status indicator
               if (_isListening || _speechText.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   color: Colors.black.withOpacity(0.3),
                   child: Row(
                     children: [
@@ -202,8 +219,8 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                           _isListening
                               ? 'Listening... Speak now'
                               : _speechText.isNotEmpty
-                                  ? 'Heard: $_speechText'
-                                  : 'Speech recognition ready',
+                              ? 'Heard: $_speechText'
+                              : 'Speech recognition ready',
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 14,
@@ -260,8 +277,12 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                         child: FloatingActionButton(
                           mini: true,
                           onPressed: _toggleListening,
-                          backgroundColor: _isListening ? Colors.red : Colors.white,
-                          foregroundColor: _isListening ? Colors.white : Colors.black,
+                          backgroundColor: _isListening
+                              ? Colors.red
+                              : Colors.white,
+                          foregroundColor: _isListening
+                              ? Colors.white
+                              : Colors.black,
                           child: Icon(_isListening ? Icons.mic_off : Icons.mic),
                         ),
                       ),
@@ -305,21 +326,22 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
 
       await _speech.listen(
         onResult: (result) {
-          setState(() {
-            _speechText = result.recognizedWords;
-          });
+          if (mounted) {
+            setState(() {
+              _speechText = result.recognizedWords;
+            });
+          }
 
-          // Auto-send if confidence is high enough and speech is final
-          if (result.finalResult && result.confidence > 0.6 && _speechText.trim().isNotEmpty) {
+          // Auto-send if finalized
+          if (result.finalResult && _speechText.trim().isNotEmpty) {
             _handleSpeechResult(_speechText.trim());
           }
         },
         listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        pauseFor: const Duration(seconds: 5),
         partialResults: true,
         localeId: 'en_US',
-        cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
+        listenMode: stt.ListenMode.dictation,
       );
 
       setState(() => _isListening = true);

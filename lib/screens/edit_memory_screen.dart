@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:lifeprint/services/cloudinary_service.dart';
 import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/models/memory_model.dart';
@@ -24,31 +24,67 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
   final _titleController = TextEditingController();
   final _transcriptController = TextEditingController();
   final _releaseDateController = TextEditingController();
-String? _currentCloudinaryUrl;
+  String? _currentCloudinaryUrl;
 
   File? _selectedFile;
   MemoryType _selectedType = MemoryType.photo;
   DateTime? _releaseDate;
   bool _isLoading = false;
   bool _isUploading = false;
-late String _emotion;
+  late String _emotion;
 
-
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _currentCloudinaryUrl = widget.memory.cloudinaryUrl;
     _initializeFields();
+    _initSpeech();
   }
 
-  
+  void _initSpeech() async {
+    try {
+      _speechEnabled = await _speech.initialize(
+        onError: (e) => debugPrint('Speech error: $e'),
+        onStatus: (s) {
+          if (s == 'notListening' || s == 'done') {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Speech init failed: $e');
+    }
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      if (!_speechEnabled) {
+        _initSpeech();
+        return;
+      }
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (val) => setState(() {
+          _transcriptController.text = val.recognizedWords;
+        }),
+        listenMode: stt.ListenMode.dictation,
+        partialResults: true,
+      );
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
   void _initializeFields() {
     _titleController.text = widget.memory.title;
     _transcriptController.text = widget.memory.transcript ?? '';
     _selectedType = widget.memory.type;
-   _emotion = widget.memory.emotion;
-
+    _emotion = widget.memory.emotion;
 
     if (widget.memory.releaseDate != null) {
       _releaseDate = widget.memory.releaseDate;
@@ -349,21 +385,20 @@ late String _emotion;
               ],
             ),
             const SizedBox(height: 16),
-          Wrap(
-  spacing: 8,
-  runSpacing: 8,
-  children: [
-    Chip(
-      label: Text(_emotion),
-      backgroundColor: _getEmotionColor(_emotion).withOpacity(0.2),
-      labelStyle: TextStyle(
-        color: _getEmotionColor(_emotion),
-        fontWeight: FontWeight.w500,
-      ),
-    ),
-  ],
-),
-
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text(_emotion),
+                  backgroundColor: _getEmotionColor(_emotion).withOpacity(0.2),
+                  labelStyle: TextStyle(
+                    color: _getEmotionColor(_emotion),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -451,6 +486,13 @@ late String _emotion;
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: 'Enter transcript or description...',
+                suffixIcon: IconButton(
+                  onPressed: _listen,
+                  icon: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? Colors.red : Colors.deepPurple,
+                  ),
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -468,66 +510,65 @@ late String _emotion;
       ),
     );
   }
-Widget _buildEmotionsSection() {
-  return Card(
-    elevation: 4,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.mood, color: Colors.deepPurple),
-              const SizedBox(width: 8),
-              Text(
-                'Emotions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
+
+  Widget _buildEmotionsSection() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.mood, color: Colors.deepPurple),
+                const SizedBox(width: 8),
+                Text(
+                  'Emotions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ✅ FIX: emotion is STRING → single chip
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(
-                label: Text(_emotion),
-                backgroundColor:
-                    _getEmotionColor(_emotion).withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: _getEmotionColor(_emotion),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // 🔒 UI SAME, LOGIC DISABLED
-          ElevatedButton.icon(
-            onPressed: null, // emotion is auto-detected
-            icon: const Icon(Icons.add),
-            label: const Text('Add Emotion'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
+              ],
             ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+            const SizedBox(height: 16),
 
+            // ✅ FIX: emotion is STRING → single chip
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text(_emotion),
+                  backgroundColor: _getEmotionColor(_emotion).withOpacity(0.2),
+                  labelStyle: TextStyle(
+                    color: _getEmotionColor(_emotion),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // 🔒 UI SAME, LOGIC DISABLED
+            ElevatedButton.icon(
+              onPressed: null, // emotion is auto-detected
+              icon: const Icon(Icons.add),
+              label: const Text('Add Emotion'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildReleaseDateInput() {
     return Card(
@@ -643,51 +684,51 @@ Widget _buildEmotionsSection() {
     }
     return Icons.insert_drive_file;
   }
-Future<void> _selectImage() async {
-  try {
-    if (kIsWeb) {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
 
-      if (result != null && result.files.single.bytes != null) {
-        setState(() {
-          _selectedFile = null; // no File on web
-          _selectedType = MemoryType.photo;
-        });
-
-        // Store bytes temporarily using Cloudinary directly
-        final url = await CloudinaryService.uploadImage(
-          bytes: result.files.single.bytes!,
-          fileName: result.files.single.name,
+  Future<void> _selectImage() async {
+    try {
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
         );
 
-      setState(() {
-  _currentCloudinaryUrl = url;
-});
+        if (result != null && result.files.single.bytes != null) {
+          setState(() {
+            _selectedFile = null; // no File on web
+            _selectedType = MemoryType.photo;
+          });
 
-      }
-    } else {
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
+          // Store bytes temporarily using Cloudinary directly
+          final url = await CloudinaryService.uploadImage(
+            bytes: result.files.single.bytes!,
+            fileName: result.files.single.name,
+          );
 
-      if (image != null) {
-        setState(() {
-          _selectedFile = File(image.path);
-          _selectedType = MemoryType.photo;
-        });
+          setState(() {
+            _currentCloudinaryUrl = url;
+          });
+        }
+      } else {
+        final picker = ImagePicker();
+        final image = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1920,
+          maxHeight: 1080,
+          imageQuality: 85,
+        );
+
+        if (image != null) {
+          setState(() {
+            _selectedFile = File(image.path);
+            _selectedType = MemoryType.photo;
+          });
+        }
       }
+    } catch (e) {
+      _showSnackBar('Error selecting image: $e', isError: true);
     }
-  } catch (e) {
-    _showSnackBar('Error selecting image: $e', isError: true);
   }
-}
 
   Future<void> _selectVideo() async {
     try {
@@ -743,7 +784,6 @@ Future<void> _selectImage() async {
     }
   }
 
-
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -765,10 +805,9 @@ Future<void> _selectImage() async {
           _isUploading = true;
         });
 
-       cloudinaryUrl = await CloudinaryService.uploadImage(
-  file: _selectedFile, // Android / iOS
-);
-
+        cloudinaryUrl = await CloudinaryService.uploadImage(
+          file: _selectedFile, // Android / iOS
+        );
 
         if (cloudinaryUrl == null) {
           throw Exception('Failed to upload new file to Cloudinary');

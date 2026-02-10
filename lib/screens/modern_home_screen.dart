@@ -18,7 +18,7 @@ import 'package:lifeprint/screens/enhanced_chatbot_screen.dart';
 
 class ModernHomeScreen extends StatefulWidget {
   final String? selectedUserId;
-b
+
   const ModernHomeScreen({super.key, this.selectedUserId});
 
   @override
@@ -73,8 +73,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           _todaysEvents = events;
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   @override
@@ -399,7 +398,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   String _formatTime(DateTime dt) {
     int hour = dt.hour % 12;
-    hour = hour == 0 ? 12 : hour; 
+    hour = hour == 0 ? 12 : hour;
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     final h = hour.toString();
     final m = dt.minute.toString().padLeft(2, '0');
@@ -490,19 +489,26 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('memories')
-                    .where('createdBy', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                    .where(
+                      'createdBy',
+                      isEqualTo: FirebaseAuth.instance.currentUser?.uid,
+                    )
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
                     final emotions = snapshot.data!.docs
-                        .map((doc) => (doc.data() as Map<String, dynamic>)['emotion'] as String?)
+                        .map(
+                          (doc) =>
+                              (doc.data() as Map<String, dynamic>)['emotion']
+                                  as String?,
+                        )
                         .where((e) => e != null && e.isNotEmpty)
                         .cast<String>()
                         .toSet()
                         .toList();
                     emotions.sort();
                     _filterOptions = ['All', ...emotions];
-                    
+
                     if (!_filterOptions.contains(_selectedFilter)) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) setState(() => _selectedFilter = 'All');
@@ -547,7 +553,12 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                                 style: TextStyle(
                                   color: isSelected
                                       ? const Color(0xFF667eea)
-                                      : const Color.fromARGB(255, 214, 142, 243),
+                                      : const Color.fromARGB(
+                                          255,
+                                          214,
+                                          142,
+                                          243,
+                                        ),
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.w500,

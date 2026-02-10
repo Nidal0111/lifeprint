@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,7 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'dart:async';
 
 import 'package:lifeprint/services/emotion_detection_service.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
@@ -27,6 +27,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
+  final _transcriptController = TextEditingController();
   final _releaseDateController = TextEditingController();
 
   final List<String> _linkedFamilyMemberNames = [];
@@ -42,9 +43,24 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
   bool _isUploading = false;
   String? _selectedEmotion;
 
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechEnabled = false;
+
   final List<String> _emotionList = [
-    'Happy', 'Sad', 'Angry', 'Surprise', 'Neutral',
-    'Joy', 'Disgust', 'Fear', 'Love', 'Gratitude', 'Peace', 'Excitement', 'Pride'
+    'Happy',
+    'Sad',
+    'Angry',
+    'Surprise',
+    'Neutral',
+    'Joy',
+    'Disgust',
+    'Fear',
+    'Love',
+    'Gratitude',
+    'Peace',
+    'Excitement',
+    'Pride',
   ];
 
   late AnimationController _fadeController;
@@ -74,6 +90,42 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     _fadeController.forward();
     _slideController.forward();
     _loadFamilyMembers();
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    try {
+      _speechEnabled = await _speech.initialize(
+        onError: (e) => debugPrint('Speech error: $e'),
+        onStatus: (s) {
+          if (s == 'notListening' || s == 'done') {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Speech init failed: $e');
+    }
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      if (!_speechEnabled) {
+        _initSpeech();
+        return;
+      }
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (val) => setState(() {
+          _transcriptController.text = val.recognizedWords;
+        }),
+        listenMode: stt.ListenMode.dictation,
+        partialResults: true,
+      );
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
   }
 
   @override
@@ -81,10 +133,10 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
     _fadeController.dispose();
     _slideController.dispose();
     _titleController.dispose();
+    _transcriptController.dispose();
     _releaseDateController.dispose();
     super.dispose();
   }
-
 
   Future<void> _uploadMemory() async {
     if (!_formKey.currentState!.validate()) return;
@@ -110,13 +162,13 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
           file: _selectedFile,
         );
       }
-      
+
       if (cloudinaryUrl == null) {
         throw Exception('Cloudinary upload failed');
       }
 
       String finalEmotion = 'Neutral';
-      
+
       if (_selectedType == MemoryType.photo) {
         if (_selectedEmotion != null) {
           finalEmotion = _selectedEmotion!;
@@ -146,7 +198,10 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         title: _titleController.text.trim(),
         type: _selectedType,
         cloudinaryUrl: cloudinaryUrl,
-        emotion: finalEmotion, 
+        transcript: _transcriptController.text.trim().isEmpty
+            ? null
+            : _transcriptController.text.trim(),
+        emotion: finalEmotion,
         releaseDate: _releaseDate,
         createdAt: DateTime.now(),
         createdBy: user.uid,
@@ -211,6 +266,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                             const SizedBox(height: 24),
 
                             _buildReleaseDateInput(),
+                            const SizedBox(height: 24),
+
+                            _buildTranscriptInput(),
                             const SizedBox(height: 24),
 
                             if (_selectedType != MemoryType.photo) ...[
@@ -692,6 +750,76 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 checkmarkColor: Colors.black,
               );
             }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTranscriptInput() {
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'Transcript / Description',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _transcriptController,
+            maxLines: 4,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Enter a transcript or description (or speak)',
+              hintStyle: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.6),
+              ),
+              suffixIcon: IconButton(
+                onPressed: _listen,
+                icon: Icon(
+                  _isListening ? Icons.mic : Icons.mic_none,
+                  color: _isListening ? Colors.red : Colors.white,
+                ),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white, width: 2),
+              ),
+            ),
           ),
         ],
       ),

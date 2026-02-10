@@ -49,42 +49,73 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
   void _initSpeech() async {
     try {
       _speechEnabled = await _speechToText.initialize(
-        onError: (e) => debugPrint('Init error: $e'),
-        onStatus: (s) => debugPrint('Init status: $s'),
+        onError: (e) {
+          debugPrint('Speech error: ${e.errorMsg} - ${e.permanent}');
+          if (mounted) {
+            setState(() {
+              _lastError = e.errorMsg;
+              _isListening = false;
+            });
+          }
+        },
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (mounted) {
+            setState(() {
+              _lastStatus = status;
+              if (status == 'notListening' || status == 'done') {
+                _isListening = false;
+                _webLevelSimulationTimer?.cancel();
+                _soundLevel = 0.0;
+              } else if (status == 'listening') {
+                _isListening = true;
+              }
+            });
+          }
+        },
+        debugLogging: true,
       );
       debugPrint('Speech initialized: $_speechEnabled');
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Speech initialization failed: $e');
-      setState(() => _lastError = 'Init failed: $e');
+      if (mounted) setState(() => _lastError = 'Init failed: $e');
     }
   }
 
   /// Start listening
   void _startListening() async {
     if (!_speechEnabled) {
-      debugPrint('Speech not enabled!');
+      debugPrint('Speech not enabled! Re-initializing...');
+      _initSpeech();
       return;
     }
-    setState(() {
-      _lastError = ''; // Clear previous errors
-      _transcript = '';
-    });
-    
+
+    if (mounted) {
+      setState(() {
+        _lastError = '';
+        _transcript = '';
+      });
+    }
+
     try {
-      debugPrint('Starting listen...');
-      // Use simpler listen call that works in Legacy Chatbot
+      debugPrint('Starting listen session...');
+      // Start listening with parameters optimized for both mobile and web
       await _speechToText.listen(
         onResult: _onSpeechResult,
-        onSoundLevelChange: (level) => {}, // Required for some platforms to stay alive
-        partialResults: true, // Crucial for Web to show text while speaking
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 5),
+        partialResults: true,
+        localeId: 'en_US',
         listenMode: ListenMode.dictation,
-        cancelOnError: true,
+        onSoundLevelChange: _onSoundLevel,
       );
-      
-      setState(() {
-        _isListening = true;
-      });
+
+      if (mounted) {
+        setState(() {
+          _isListening = true;
+        });
+      }
 
       // On Web, onSoundLevelChange is often not supported, so we simulate it
       if (kIsWeb) {
@@ -92,45 +123,59 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
         _webLevelSimulationTimer = Timer.periodic(
           const Duration(milliseconds: 100),
           (timer) {
-            if (_isListening) {
+            if (_isListening && mounted) {
               final random = Random();
               setState(() {
                 _soundLevel = -10.0 + random.nextDouble() * 20.0;
               });
+            } else {
+              timer.cancel();
             }
           },
         );
       }
     } catch (e) {
       debugPrint('Error starting speech listen: $e');
-      setState(() => _lastError = 'Start failed: $e');
+      if (mounted) setState(() => _lastError = 'Start failed: $e');
     }
   }
 
   /// Stop listening
   void _stopListening() async {
-    await _speechToText.stop();
-    _webLevelSimulationTimer?.cancel();
-    setState(() {
-      _isListening = false;
-      _soundLevel = 0.0;
-      _lastStatus = 'Stopped';
-    });
+    try {
+      await _speechToText.stop();
+      _webLevelSimulationTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _soundLevel = 0.0;
+          _lastStatus = 'Stopped';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error stopping speech: $e');
+    }
   }
 
   /// Callback for speech results
   void _onSpeechResult(SpeechRecognitionResult result) {
-    debugPrint('Got partial result: ${result.recognizedWords}');
-    setState(() {
-      _transcript = result.recognizedWords;
-    });
+    debugPrint(
+      'Got result: ${result.recognizedWords} (final: ${result.finalResult})',
+    );
+    if (mounted) {
+      setState(() {
+        _transcript = result.recognizedWords;
+      });
+    }
   }
 
-  /// Callback for sound level changes (used for visualization)
+  /// Callback for sound level changes
   void _onSoundLevel(double level) {
-    setState(() {
-      _soundLevel = level;
-    });
+    if (mounted && !kIsWeb) {
+      setState(() {
+        _soundLevel = level;
+      });
+    }
   }
 
   void _toggleRecording() {
@@ -200,7 +245,9 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                         child: Column(
                           children: [
                             Text(
-                              _isListening ? 'Listening...' : 'Tap Record to speak',
+                              _isListening
+                                  ? 'Listening...'
+                                  : 'Tap Record to speak',
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -212,7 +259,10 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
                                   'Error: $_lastError',
-                                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                           ],
@@ -249,8 +299,9 @@ class _SpeechToTextScreenState extends State<SpeechToTextScreen>
                       // Recorder Button
                       FloatingActionButton.extended(
                         onPressed: _speechEnabled ? _toggleRecording : null,
-                        backgroundColor:
-                            _isListening ? Colors.redAccent : Colors.black,
+                        backgroundColor: _isListening
+                            ? Colors.redAccent
+                            : Colors.black,
                         foregroundColor: Colors.white,
                         icon: Icon(_isListening ? Icons.stop : Icons.mic),
                         label: Text(_isListening ? 'Stop' : 'Record'),
@@ -279,18 +330,19 @@ class _SoundBar extends StatelessWidget {
     final random = Random(index);
     // speech_to_text often returns level in range -10 roughly to 10? documentation varies.
     // We'll normalize it to a base height + dynamic component.
-    
+
     // Base height
     double height = 20.0;
-    
+
     // Add dynamic component if level is significant. Assuming level is often > -10 when talking.
-    // If level is really dB, it might be -100 to 0. 
+    // If level is really dB, it might be -100 to 0.
     // Let's assume some variability. If we use built-in Random for now it will look active.
-    if (level > -50) { // arbitrary threshold showing activity
-        double boost = (level + 50) * 0.5; // Scale it
-        height += boost * random.nextDouble();
+    if (level > -50) {
+      // arbitrary threshold showing activity
+      double boost = (level + 50) * 0.5; // Scale it
+      height += boost * random.nextDouble();
     }
-    
+
     // Clamp height
     height = height.clamp(10.0, 80.0);
 
