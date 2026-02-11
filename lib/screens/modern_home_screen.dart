@@ -12,8 +12,6 @@ import 'package:lifeprint/screens/family_tree_screen.dart';
 import 'package:lifeprint/models/memory_model.dart';
 import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/services/event_service.dart';
-import 'package:lifeprint/screens/speech_to_text_screen.dart';
-import 'package:lifeprint/screens/legacy_chatbot_screen.dart';
 import 'package:lifeprint/screens/enhanced_chatbot_screen.dart';
 
 class ModernHomeScreen extends StatefulWidget {
@@ -128,19 +126,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
         children: [
-          Expanded(
-            child: _aiCard(
-              context,
-              icon: Icons.mic,
-              title: 'Speech to Text',
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SpeechToTextScreen()),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: _aiCard(
               context,

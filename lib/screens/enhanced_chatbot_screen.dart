@@ -22,7 +22,6 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
   final TextEditingController _controller = TextEditingController();
   late stt.SpeechToText _speech;
   bool _isListening = false;
-  String _speechText = '';
   bool _speechAvailable = false;
 
   late AnimationController _pulseController;
@@ -200,7 +199,7 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                 ),
               ),
               // Speech recognition status indicator
-              if (_isListening || _speechText.isNotEmpty)
+              if (_isListening)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -209,32 +208,17 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                   color: Colors.black.withOpacity(0.3),
                   child: Row(
                     children: [
-                      Icon(
-                        _isListening ? Icons.mic : Icons.mic_off,
-                        color: _isListening ? Colors.red : Colors.white70,
-                      ),
+                      const Icon(Icons.mic, color: Colors.red),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _isListening
-                              ? 'Listening... Speak now'
-                              : _speechText.isNotEmpty
-                              ? 'Heard: $_speechText'
-                              : 'Speech recognition ready',
+                          'Listening...',
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 14,
                           ),
                         ),
                       ),
-                      if (_speechText.isNotEmpty && !_isListening)
-                        IconButton(
-                          onPressed: () {
-                            _controller.text = _speechText;
-                            setState(() => _speechText = '');
-                          },
-                          icon: const Icon(Icons.check, color: Colors.green),
-                        ),
                     ],
                   ),
                 ),
@@ -328,13 +312,13 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
         onResult: (result) {
           if (mounted) {
             setState(() {
-              _speechText = result.recognizedWords;
+              _controller.text = result.recognizedWords;
             });
           }
 
           // Auto-send if finalized
-          if (result.finalResult && _speechText.trim().isNotEmpty) {
-            _handleSpeechResult(_speechText.trim());
+          if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+            _handleSpeechResult(result.recognizedWords.trim());
           }
         },
         listenFor: const Duration(seconds: 30),
@@ -356,7 +340,6 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
     await _speech.stop();
     setState(() {
       _isListening = false;
-      _speechText = '';
     });
     _pulseController.stop();
 
@@ -384,7 +367,6 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
       _messages.add(_Message(text: text, isBot: false));
       _isTyping = true;
       _controller.clear();
-      _speechText = '';
     });
 
     try {
