@@ -10,7 +10,7 @@ class EmotionDetectionService {
   // 🚀 LOCAL NETWORK CONFIGURATION
   // 1. Ensure phone and laptop are on the SAME Wi-Fi.
   // 2. Python server host must be '0.0.0.0'.
-  static const String _baseUrl = 'http://172.20.10.3:8000'; 
+  static const String _baseUrl = 'https://facial-expressions-recognition-master.onrender.com/'; 
 
   Future<List<String>> detectEmotions(dynamic imageFile) async {
     try {
