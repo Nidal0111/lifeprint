@@ -10,28 +10,31 @@ class EmotionDetectionService {
   // 🚀 LOCAL NETWORK CONFIGURATION
   // 1. Ensure phone and laptop are on the SAME Wi-Fi.
   // 2. Python server host must be '0.0.0.0'.
-  static const String _baseUrl = 'https://facial-expressions-recognition-master.onrender.com/'; 
+  static const String _baseUrl =
+      'https://facial-expressions-recognition-master.onrender.com';
 
-  Future<List<String>> detectEmotions(dynamic imageFile) async {
+  Future<List<String>> detectEmotions(
+    dynamic imageFile, {
+    String? fileName,
+  }) async {
     try {
       final uri = Uri.parse('$_baseUrl/predict-emotion/');
 
       final request = http.MultipartRequest('POST', uri);
 
       // ✅ REQUIRED HEADERS FOR FLUTTER WEB
-      request.headers.addAll({
-        'Accept': 'application/json',
-      });
+      request.headers.addAll({'Accept': 'application/json'});
 
       // -------- IMAGE HANDLING --------
       if (kIsWeb) {
         if (imageFile is Uint8List) {
+          final String fname = fileName ?? 'image.jpg';
           request.files.add(
             http.MultipartFile.fromBytes(
               'file',
               imageFile,
-              filename: 'image.jpg',
-              contentType: http_parser.MediaType('image', 'jpeg'),
+              filename: fname,
+              contentType: _getMediaType(fname),
             ),
           );
         } else {
@@ -40,10 +43,7 @@ class EmotionDetectionService {
       } else {
         if (imageFile is File) {
           request.files.add(
-            await http.MultipartFile.fromPath(
-              'file',
-              imageFile.path,
-            ),
+            await http.MultipartFile.fromPath('file', imageFile.path),
           );
         } else {
           throw Exception('Mobile/Desktop expects File image');
@@ -58,14 +58,29 @@ class EmotionDetectionService {
 
       // -------- SEND REQUEST --------
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 30),
+        // Increased timeout for Render Free Tier Cold Starts (can take >50s)
+        const Duration(seconds: 90),
       );
 
       final responseBody = await streamedResponse.stream.bytesToString();
-      debugPrint('Emotion API Response: $responseBody'); // 🔍 DEBUG LOG
+
+      // 🔍 ENHANCED DEBUG LOGGING
+      debugPrint('=== EMOTION API DEBUG ===');
+      debugPrint('Status Code: ${streamedResponse.statusCode}');
+      debugPrint('Response Body: $responseBody');
+      debugPrint('Response Headers: ${streamedResponse.headers}');
+      debugPrint('========================');
 
       if (streamedResponse.statusCode == 200) {
         final decoded = json.decode(responseBody);
+        debugPrint('Decoded JSON: $decoded');
+
+        // Check for error in response
+        if (decoded is Map && decoded.containsKey('error')) {
+          debugPrint('API returned error: ${decoded['error']}');
+          return []; // No face detected
+        }
+
         return _extractEmotionsFromResponse(decoded);
       } else {
         debugPrint(
@@ -89,9 +104,10 @@ class EmotionDetectionService {
         emotions.add(jsonData['emotion'].toString());
       }
       // Format B: Map with key {"emotions": ["happy", "sad"]}
-      else if (jsonData.containsKey('emotions') && jsonData['emotions'] is List) {
+      else if (jsonData.containsKey('emotions') &&
+          jsonData['emotions'] is List) {
         emotions.addAll(List<String>.from(jsonData['emotions']));
-      } 
+      }
       // Format D: Map with prediction key {"prediction": "happy"}
       else if (jsonData.containsKey('prediction')) {
         emotions.add(jsonData['prediction'].toString());
@@ -115,9 +131,26 @@ class EmotionDetectionService {
     }
 
     // Normalize to Capital Case (e.g., happy -> Happy)
-    return emotions.map((e) {
-      if (e.isEmpty) return 'Neutral';
-      return e[0].toUpperCase() + e.substring(1).toLowerCase();
-    }).toSet().toList();
+    return emotions
+        .map((e) {
+          if (e.isEmpty) return 'Neutral';
+          return e[0].toUpperCase() + e.substring(1).toLowerCase();
+        })
+        .toSet()
+        .toList();
+  }
+
+  http_parser.MediaType _getMediaType(String filename) {
+    String ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return http_parser.MediaType('image', 'png');
+      case 'webp':
+        return http_parser.MediaType('image', 'webp');
+      case 'gif':
+        return http_parser.MediaType('image', 'gif');
+      default:
+        return http_parser.MediaType('image', 'jpeg');
+    }
   }
 }

@@ -173,7 +173,10 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         if (_selectedEmotion != null) {
           finalEmotion = _selectedEmotion!;
         } else {
-          final emotions = await _emotionService.detectEmotions(_selectedFile);
+          final emotions = await _emotionService.detectEmotions(
+            _selectedFile,
+            fileName: _selectedFileName,
+          );
           if (emotions.isNotEmpty) {
             finalEmotion = emotions.first;
           }
