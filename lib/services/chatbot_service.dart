@@ -1014,6 +1014,62 @@ Always provide value by connecting their stored information to their question.''
     }
   }
 
+  /// Translate the given text to English using Gemini
+  Future<String> translateToEnglish(String text) async {
+    try {
+      String geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
+      final geminiKey = const String.fromEnvironment('GEMINI_API_KEY');
+
+      if (geminiUrl.isEmpty) {
+        geminiUrl =
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+      }
+
+      final prompt =
+          "Translate the following text to English. If it is already in English, return it as is. Return ONLY the translated text, no other comments or explanations:\n\n$text";
+
+      final resp = await http
+          .post(
+            Uri.parse(
+              geminiUrl.contains('?')
+                  ? '$geminiUrl&key=$geminiKey'
+                  : '$geminiUrl?key=$geminiKey',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt},
+                  ],
+                },
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body);
+        if (body is Map<String, dynamic> && body.containsKey('candidates')) {
+          final candidates = body['candidates'] as List;
+          if (candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            if (content != null && content['parts'] != null) {
+              final parts = content['parts'] as List;
+              if (parts.isNotEmpty) {
+                return parts[0]['text'].toString().trim();
+              }
+            }
+          }
+        }
+      }
+      return text;
+    } catch (e) {
+      debugPrint('Translation failed: $e');
+      return text;
+    }
+  }
+
   /// Check if message contains any of the given keywords
   bool _containsAny(String message, List<String> keywords) {
     return keywords.any((keyword) => message.contains(keyword));

@@ -23,6 +23,8 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
   late stt.SpeechToText _speech;
   bool _isListening = false;
   bool _speechAvailable = false;
+  bool _translateMode = false;
+  String _currentLocale = 'en_US'; // Default to English
 
   late AnimationController _pulseController;
 
@@ -255,7 +257,45 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                     ),
                     const SizedBox(width: 8),
                     // Voice input button
-                    if (_speechAvailable)
+                    if (_speechAvailable) ...[
+                      // Language selector
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _currentLocale = _currentLocale == 'en_US'
+                                ? 'ml_IN'
+                                : 'en_US';
+                            if (_currentLocale == 'ml_IN')
+                              _translateMode = true;
+                          });
+                        },
+                        icon: Text(
+                          _currentLocale == 'en_US' ? 'EN' : 'ML',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                        tooltip: 'Change Language',
+                      ),
+                      // Translate toggle
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _translateMode = !_translateMode;
+                          });
+                        },
+                        icon: Icon(
+                          _translateMode ? Icons.translate : Icons.g_translate,
+                          color: _translateMode
+                              ? Colors.cyanAccent
+                              : Colors.white,
+                          size: 20,
+                        ),
+                        tooltip: 'Translation Mode',
+                      ),
+                      const SizedBox(width: 4),
                       ScaleTransition(
                         scale: _pulseController,
                         child: FloatingActionButton(
@@ -270,6 +310,7 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                           child: Icon(_isListening ? Icons.mic_off : Icons.mic),
                         ),
                       ),
+                    ],
                     const SizedBox(width: 8),
                     // Send button
                     FloatingActionButton(
@@ -324,7 +365,7 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 5),
         partialResults: true,
-        localeId: 'en_US',
+        localeId: _currentLocale,
         listenMode: stt.ListenMode.dictation,
       );
 
@@ -343,13 +384,29 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
     });
     _pulseController.stop();
 
-    // Set the controller text and send
+    // Set the controller text
     setState(() {
       _controller.text = speechText;
     });
 
+    if (_translateMode) {
+      // Show translation status
+      setState(() {
+        _isTyping = true; // reusing typing indicator context
+      });
+
+      final translated = await _chatbotService.translateToEnglish(speechText);
+
+      if (mounted) {
+        setState(() {
+          _controller.text = translated;
+          _isTyping = false;
+        });
+      }
+    }
+
     // Small delay to ensure UI updates
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     // Send the message
     _send();
