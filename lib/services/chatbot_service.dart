@@ -178,7 +178,7 @@ class ChatbotService {
       final familyLines = relationships
           .take(familyLimit)
           .map((r) {
-            final relatedUser = familyMembers[r.toUserId];
+            final relatedUser = familyMembers[r.toUserId ?? 'unlinked_${r.id}'];
             return jsonEncode({
               'type': 'family',
               'relation': r.relation,
@@ -252,25 +252,28 @@ Always provide value by connecting their stored information to their question.''
 
       // ✅ FALLBACK: Use Google AI Studio URL if not provided (matches GEMINI_API_SETUP.md)
       if (geminiUrl.isEmpty) {
-        geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+        geminiUrl =
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
       }
 
       if (geminiUrl.isNotEmpty) {
         try {
           final resp = await http
               .post(
-                Uri.parse(geminiUrl.contains('?') ? '$geminiUrl&key=$geminiKey' : '$geminiUrl?key=$geminiKey'),
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                Uri.parse(
+                  geminiUrl.contains('?')
+                      ? '$geminiUrl&key=$geminiKey'
+                      : '$geminiUrl?key=$geminiKey',
+                ),
+                headers: {'Content-Type': 'application/json'},
                 body: jsonEncode({
                   'contents': [
                     {
                       'parts': [
-                        {'text': prompt}
-                      ]
-                    }
-                  ]
+                        {'text': prompt},
+                      ],
+                    },
+                  ],
                 }),
               )
               .timeout(const Duration(seconds: 15));
@@ -293,7 +296,7 @@ Always provide value by connecting their stored information to their question.''
                     }
                   }
                 }
-                
+
                 // Keep existing flexible parsing
                 final result =
                     body['result'] ??
@@ -472,7 +475,9 @@ Always provide value by connecting their stored information to their question.''
         } else {
           for (int i = 0; i < userRelationships.length; i++) {
             final relationship = userRelationships[i];
-            final relatedUser = familyMembers[relationship.toUserId];
+            final relatedUser =
+                familyMembers[relationship.toUserId ??
+                    'unlinked_${relationship.id}'];
 
             if (relatedUser != null) {
               final relationDisplay = RelationshipType.getDisplayName(
@@ -511,7 +516,9 @@ Always provide value by connecting their stored information to their question.''
               "👪 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s**:\n\n";
           for (int i = 0; i < matchingRelations.length; i++) {
             final relationship = matchingRelations[i];
-            final relatedUser = familyMembers[relationship.toUserId];
+            final relatedUser =
+                familyMembers[relationship.toUserId ??
+                    'unlinked_${relationship.id}'];
 
             if (relatedUser != null) {
               response += "${i + 1}. **${relatedUser.name}**\n";
@@ -583,13 +590,12 @@ Always provide value by connecting their stored information to their question.''
           .inDays;
 
       // Most common emotions
-    final emotionCounts = <String, int>{};
-for (final m in memories) {
-  if (m.emotion.isNotEmpty) {
-    emotionCounts[m.emotion] =
-        (emotionCounts[m.emotion] ?? 0) + 1;
-  }
-}
+      final emotionCounts = <String, int>{};
+      for (final m in memories) {
+        if (m.emotion.isNotEmpty) {
+          emotionCounts[m.emotion] = (emotionCounts[m.emotion] ?? 0) + 1;
+        }
+      }
 
       final topEmotions = emotionCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
@@ -678,7 +684,10 @@ for (final m in memories) {
       // Cross-collection search: memories about family members
       if (isFamilyQuery && userRelationships.isNotEmpty) {
         final familyNames = userRelationships
-            .map((r) => familyMembers[r.toUserId]?.name.toLowerCase())
+            .map(
+              (r) => familyMembers[r.toUserId ?? 'unlinked_${r.id}']?.name
+                  .toLowerCase(),
+            )
             .where((name) => name != null)
             .cast<String>()
             .toList();
@@ -706,9 +715,9 @@ for (final m in memories) {
             final memory = familyMemories[i];
             response +=
                 "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-        if (memory.emotion.isNotEmpty) {
-  response += "   Emotion: ${memory.emotion}\n";
-}
+            if (memory.emotion.isNotEmpty) {
+              response += "   Emotion: ${memory.emotion}\n";
+            }
 
             response += "\n";
           }
@@ -743,9 +752,9 @@ for (final m in memories) {
             final memory = eventMemories[i];
             response +=
                 "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-         if (memory.emotion.isNotEmpty) {
-  response += "   Emotion: ${memory.emotion}\n";
-}
+            if (memory.emotion.isNotEmpty) {
+              response += "   Emotion: ${memory.emotion}\n";
+            }
 
             response += "\n";
           }
@@ -758,9 +767,9 @@ for (final m in memories) {
         final titleMatch = searchTerms.any(
           (term) => memory.title.toLowerCase().contains(term.toLowerCase()),
         );
-      final emotionMatch = searchTerms.any(
-  (term) => memory.emotion.toLowerCase().contains(term),
-);
+        final emotionMatch = searchTerms.any(
+          (term) => memory.emotion.toLowerCase().contains(term),
+        );
 
         final transcriptMatch =
             memory.transcript != null &&
@@ -791,9 +800,9 @@ for (final m in memories) {
         final memory = results[i];
         response +=
             "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
-       if (memory.emotion.isNotEmpty) {
-  response += "   Emotion: ${memory.emotion}\n";
-}
+        if (memory.emotion.isNotEmpty) {
+          response += "   Emotion: ${memory.emotion}\n";
+        }
 
         response += "\n";
       }

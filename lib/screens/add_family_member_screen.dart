@@ -97,26 +97,40 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
       final members = <FamilyMember>[];
       for (final relationship in relationships) {
         try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(relationship.toUserId)
-              .get();
+          if (relationship.toUserId != null) {
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(relationship.toUserId)
+                .get();
 
-          if (userDoc.exists) {
-            final userData = userDoc.data() as Map<String, dynamic>;
+            if (userDoc.exists) {
+              final userData = userDoc.data() as Map<String, dynamic>;
+              final member = FamilyMember(
+                id: relationship.id,
+                name: userData['Full Name'] ?? 'Unknown',
+                relation: relationship.relation,
+                linkedUserId: relationship.toUserId,
+                profileImageUrl: userData['Profile Image URL'],
+                createdAt: relationship.createdAt,
+                createdBy: relationship.fromUserId,
+              );
+              members.add(member);
+            }
+          } else {
+            // Unlinked member
             final member = FamilyMember(
               id: relationship.id,
-              name: userData['Full Name'] ?? 'Unknown',
+              name: relationship.memberName ?? 'Unknown',
               relation: relationship.relation,
-              linkedUserId: relationship.toUserId,
-              profileImageUrl: userData['Profile Image URL'],
+              linkedUserId: null,
+              profileImageUrl: relationship.memberProfileImageUrl,
               createdAt: relationship.createdAt,
               createdBy: relationship.fromUserId,
             );
             members.add(member);
           }
         } catch (e) {
-          print('Error loading member ${relationship.toUserId}: $e');
+          print('Error loading member ${relationship.id}: $e');
         }
       }
 
@@ -175,19 +189,12 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
 
   Future<void> _addFamilyMember() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a user to add'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
 
-    // Prevent adding self
+    // Check if adding self only if a user is selected
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserId != null && _selectedUserId == currentUserId) {
+    if (_selectedUserId != null &&
+        currentUserId != null &&
+        _selectedUserId == currentUserId) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('You cannot add yourself.'),
@@ -205,7 +212,7 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
       await _familyTreeService.addFamilyMember(
         name: _nameController.text.trim(),
         relation: _selectedRelation,
-        linkedUserId: _selectedUserId!,
+        linkedUserId: _selectedUserId,
       );
 
       if (mounted) {

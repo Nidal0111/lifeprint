@@ -88,17 +88,25 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
     // Add edges for relationships
     for (final relationship in _relationships) {
+      final targetId = relationship.toUserId ?? 'unlinked_${relationship.id}';
+
       if (_familyMembers.containsKey(relationship.fromUserId) &&
-          _familyMembers.containsKey(relationship.toUserId)) {
-        _graph!.addEdge(
-          Node.Id(relationship.fromUserId),
-          Node.Id(relationship.toUserId),
-        );
+          _familyMembers.containsKey(targetId)) {
+        _graph!.addEdge(Node.Id(relationship.fromUserId), Node.Id(targetId));
       }
     }
   }
 
-  void _openUserMemories(String userId) {
+  void _openUserMemories(String? userId) {
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This family member is not linked to a user account.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ModernHomeScreen(selectedUserId: userId),
@@ -115,7 +123,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final titleFontSize = isSmallScreen ? 18.0 : 20.0;
     final bodyFontSize = isSmallScreen ? 13.0 : 14.0;
     final countFontSize = isSmallScreen ? 14.0 : 16.0;
-    
+
     return Card(
       margin: EdgeInsets.symmetric(
         horizontal: isSmallScreen ? 12 : 16,
@@ -128,7 +136,10 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           children: [
             Text(
               'Family Tree',
-              style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             SizedBox(height: isSmallScreen ? 6 : 8),
             Text(
@@ -166,7 +177,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600;
     final isMediumScreen = screenWidth >= 600 && screenWidth < 1200;
-    
+
     if (_graph == null || _graph!.nodeCount == 0) {
       return Center(
         child: Padding(
@@ -186,7 +197,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       final avatarRadius = isSmallScreen ? 24.0 : 28.0;
       final nameFontSize = isSmallScreen ? 13.0 : 14.0;
       final relationFontSize = isSmallScreen ? 11.0 : 12.0;
-      
+
       return Center(
         child: GestureDetector(
           onTap: () => _openUserMemories(member.linkedUserId),
@@ -266,12 +277,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             } else {
               crossAxisCount = (constraints.maxWidth ~/ 180).clamp(4, 6);
             }
-            
-            final avatarRadius = isSmallScreen ? 20.0 : (isMediumScreen ? 22.0 : 24.0);
+
+            final avatarRadius = isSmallScreen
+                ? 20.0
+                : (isMediumScreen ? 22.0 : 24.0);
             final nameFontSize = isSmallScreen ? 11.0 : 12.0;
             final relationFontSize = isSmallScreen ? 9.0 : 10.0;
             final cardPadding = isSmallScreen ? 6.0 : 8.0;
-            
+
             return GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
@@ -612,16 +625,18 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600;
     final isMediumScreen = screenWidth >= 600 && screenWidth < 1200;
-    
+
     // Responsive padding and sizing
     final appBarHorizontalPadding = isSmallScreen ? 8.0 : 16.0;
     final appBarVerticalPadding = isSmallScreen ? 8.0 : 12.0;
     final titleFontSize = isSmallScreen ? 20.0 : 24.0;
     final iconSize = isSmallScreen ? 22.0 : 24.0;
-    final containerMargin = isSmallScreen ? 8.0 : (isMediumScreen ? 12.0 : 16.0);
+    final containerMargin = isSmallScreen
+        ? 8.0
+        : (isMediumScreen ? 12.0 : 16.0);
     final fabIconSize = isSmallScreen ? 20.0 : 24.0;
     final fabLabelSize = isSmallScreen ? 13.0 : 14.0;
-    
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -694,7 +709,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                                 border: Border.all(
                                   color: Colors.white.withOpacity(0.12),
                                 ),
-                                borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 12),
+                                borderRadius: BorderRadius.circular(
+                                  isSmallScreen ? 8 : 12,
+                                ),
                               ),
                               child: _buildFamilyTree(),
                             ),

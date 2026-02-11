@@ -11,14 +11,14 @@ class FamilyTreeService {
   Future<String> addFamilyMember({
     required String name,
     required String relation,
-    required String linkedUserId,
+    String? linkedUserId,
     String? profileImageUrl,
   }) async {
     if (currentUserId == null) {
       throw Exception("User not logged in.");
     }
 
-    if (linkedUserId == currentUserId) {
+    if (linkedUserId != null && linkedUserId == currentUserId) {
       throw Exception("You cannot add yourself as a family member.");
     }
 
@@ -30,6 +30,7 @@ class FamilyTreeService {
         toUserId: linkedUserId,
         relation: relation,
         createdAt: DateTime.now(),
+        memberName: linkedUserId == null ? name : null,
       );
 
       await _firestore
@@ -39,7 +40,7 @@ class FamilyTreeService {
 
       await _firestore.collection('users').doc(currentUserId!).update({
         'relationships': FieldValue.arrayUnion([relationshipId]),
-        'updatedAt': FieldValue.serverTimestamp() ,
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       print('Family member added successfully with ID: $relationshipId');
@@ -86,69 +87,92 @@ class FamilyTreeService {
   }) async {
     final familyMembers = <String, FamilyMember>{};
     final visited = <String>{};
-    final queue = <Map<String, dynamic>>[]; 
+    final queue = <Map<String, dynamic>>[];
 
-    queue.add({'id': userId, 'depth': 0, 'relation': 'Self'});
+    queue.add({'id': userId, 'depth': 0, 'relation': 'Self', 'isLinked': true});
     visited.add(userId);
 
     while (queue.isNotEmpty) {
       final currentItem = queue.removeAt(0);
-      final String currentUserId = currentItem['id'];
+      final String currentId = currentItem['id'];
       final int currentDepth = currentItem['depth'];
       final String currentRelation = currentItem['relation'];
+      final bool isLinked = currentItem['isLinked'];
 
       if (currentDepth >= maxDepth) continue;
 
       try {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(currentUserId)
-            .get();
-        if (!userDoc.exists) continue;
+        if (isLinked) {
+          final userDoc = await _firestore
+              .collection('users')
+              .doc(currentId)
+              .get();
 
-        final userData = userDoc.data() as Map<String, dynamic>;
+          if (!userDoc.exists) continue;
 
-        final familyMember = FamilyMember(
-          id: currentUserId,
-          name: userData['Full Name'] ?? 'Unknown',
-          relation: currentRelation,
-          linkedUserId: currentUserId,
-          profileImageUrl: userData['Profile Image URL'],
-          createdAt: DateTime.now(),
-          createdBy: currentUserId,
-        );
+          final userData = userDoc.data() as Map<String, dynamic>;
 
-        familyMembers[currentUserId] = familyMember;
+          final familyMember = FamilyMember(
+            id: currentId,
+            name: userData['Full Name'] ?? 'Unknown',
+            relation: currentRelation,
+            linkedUserId: currentId,
+            profileImageUrl: userData['Profile Image URL'],
+            createdAt: DateTime.now(),
+            createdBy: currentId,
+          );
 
-        final relationships = await getUserRelationships(currentUserId);
+          familyMembers[currentId] = familyMember;
 
-        for (final relationship in relationships) {
-          final relatedUserId = relationship.toUserId;
+          final relationships = await getUserRelationships(currentId);
 
-          if (!visited.contains(relatedUserId) && currentDepth < maxDepth - 1) {
-            visited.add(relatedUserId);
-            queue.add({
-              'id': relatedUserId,
-              'depth': currentDepth + 1,
-              'relation': relationship.relation,
-            });
+          for (final relationship in relationships) {
+            final relatedUserId = relationship.toUserId;
+
+            if (relatedUserId != null) {
+              if (!visited.contains(relatedUserId) &&
+                  currentDepth < maxDepth - 1) {
+                visited.add(relatedUserId);
+                queue.add({
+                  'id': relatedUserId,
+                  'depth': currentDepth + 1,
+                  'relation': relationship.relation,
+                  'isLinked': true,
+                });
+              }
+            } else {
+              // Unlinked member - add directly to familyMembers
+              final unlinkedId = "unlinked_${relationship.id}";
+              if (!familyMembers.containsKey(unlinkedId)) {
+                familyMembers[unlinkedId] = FamilyMember(
+                  id: unlinkedId,
+                  name: relationship.memberName ?? 'Unknown',
+                  relation: relationship.relation,
+                  linkedUserId: null,
+                  profileImageUrl: relationship.memberProfileImageUrl,
+                  createdAt: relationship.createdAt,
+                  createdBy: relationship.fromUserId,
+                );
+              }
+            }
           }
         }
       } catch (e) {
-        print('Error fetching family member $currentUserId: $e');
+        print('Error fetching family member $currentId: $e');
         continue;
       }
     }
 
     return familyMembers;
   }
+
   Future<List<Relationship>> getFamilyRelationships(
     String userId, {
     int maxDepth = 3,
   }) async {
     final allRelationships = <Relationship>[];
     final visited = <String>{};
-    final queue = <String, int>{}; 
+    final queue = <String, int>{};
 
     queue[userId] = 0;
     visited.add(userId);
@@ -167,9 +191,12 @@ class FamilyTreeService {
         for (final relationship in relationships) {
           final relatedUserId = relationship.toUserId;
 
-          if (!visited.contains(relatedUserId) && currentDepth < maxDepth - 1) {
-            visited.add(relatedUserId);
-            queue[relatedUserId] = currentDepth + 1;
+          if (relatedUserId != null) {
+            if (!visited.contains(relatedUserId) &&
+                currentDepth < maxDepth - 1) {
+              visited.add(relatedUserId);
+              queue[relatedUserId] = currentDepth + 1;
+            }
           }
         }
       } catch (e) {
@@ -180,6 +207,7 @@ class FamilyTreeService {
 
     return allRelationships;
   }
+
   Future<void> deleteFamilyMember(String relationshipId) async {
     if (currentUserId == null) {
       throw Exception("User not logged in.");
@@ -209,7 +237,8 @@ class FamilyTreeService {
       print('Error deleting family member: $e');
       rethrow;
     }
-  } 
+  }
+
   Future<List<Map<String, dynamic>>> searchUsers(String query) async {
     try {
       if (query.trim().isEmpty) return [];
@@ -270,6 +299,7 @@ class FamilyTreeService {
       rethrow;
     }
   }
+
   Future<Map<String, int>> getFamilyTreeStats(String userId) async {
     try {
       final familyMembers = await getFamilyTree(userId, maxDepth: 3);

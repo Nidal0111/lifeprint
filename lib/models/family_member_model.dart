@@ -4,7 +4,7 @@ class FamilyMember {
   final String id;
   final String name;
   final String relation;
-  final String linkedUserId;
+  final String? linkedUserId;
   final String? profileImageUrl;
   final DateTime createdAt;
   final String createdBy;
@@ -13,7 +13,7 @@ class FamilyMember {
     required this.id,
     required this.name,
     required this.relation,
-    required this.linkedUserId,
+    this.linkedUserId,
     this.profileImageUrl,
     required this.createdAt,
     required this.createdBy,
@@ -36,7 +36,7 @@ class FamilyMember {
       id: map['id'] as String,
       name: map['name'] as String,
       relation: map['relation'] as String,
-      linkedUserId: map['linkedUserId'] as String,
+      linkedUserId: map['linkedUserId'] as String?,
       profileImageUrl: map['profileImageUrl'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
       createdBy: map['createdBy'] as String,
@@ -49,7 +49,7 @@ class FamilyMember {
       id: doc.id,
       name: data['name'] as String,
       relation: data['relation'] as String,
-      linkedUserId: data['linkedUserId'] as String,
+      linkedUserId: data['linkedUserId'] as String?,
       profileImageUrl: data['profileImageUrl'] as String?,
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
@@ -112,16 +112,20 @@ class FamilyMember {
 class Relationship {
   final String id;
   final String fromUserId;
-  final String toUserId;
+  final String? toUserId;
   final String relation;
   final DateTime createdAt;
+  final String? memberName;
+  final String? memberProfileImageUrl;
 
   Relationship({
     required this.id,
     required this.fromUserId,
-    required this.toUserId,
+    this.toUserId,
     required this.relation,
     required this.createdAt,
+    this.memberName,
+    this.memberProfileImageUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -131,6 +135,8 @@ class Relationship {
       'toUserId': toUserId,
       'relation': relation,
       'createdAt': createdAt.toIso8601String(),
+      'memberName': memberName,
+      'memberProfileImageUrl': memberProfileImageUrl,
     };
   }
 
@@ -138,9 +144,11 @@ class Relationship {
     return Relationship(
       id: map['id'] as String,
       fromUserId: map['fromUserId'] as String,
-      toUserId: map['toUserId'] as String,
+      toUserId: map['toUserId'] as String?,
       relation: map['relation'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
+      memberName: map['memberName'] as String?,
+      memberProfileImageUrl: map['memberProfileImageUrl'] as String?,
     );
   }
 
@@ -149,11 +157,13 @@ class Relationship {
     return Relationship(
       id: doc.id,
       fromUserId: data['fromUserId'] as String,
-      toUserId: data['toUserId'] as String,
+      toUserId: data['toUserId'] as String?,
       relation: data['relation'] as String,
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.parse(data['createdAt'] as String),
+      memberName: data['memberName'] as String?,
+      memberProfileImageUrl: data['memberProfileImageUrl'] as String?,
     );
   }
 
@@ -166,7 +176,9 @@ class Relationship {
         other.fromUserId == fromUserId &&
         other.toUserId == toUserId &&
         other.relation == relation &&
-        other.createdAt == createdAt;
+        other.createdAt == createdAt &&
+        other.memberName == memberName &&
+        other.memberProfileImageUrl == memberProfileImageUrl;
   }
 
   @override
@@ -175,12 +187,14 @@ class Relationship {
         fromUserId.hashCode ^
         toUserId.hashCode ^
         relation.hashCode ^
-        createdAt.hashCode;
+        createdAt.hashCode ^
+        memberName.hashCode ^
+        memberProfileImageUrl.hashCode;
   }
 
   @override
   String toString() {
-    return 'Relationship(id: $id, fromUserId: $fromUserId, toUserId: $toUserId, relation: $relation, createdAt: $createdAt)';
+    return 'Relationship(id: $id, fromUserId: $fromUserId, toUserId: $toUserId, relation: $relation, createdAt: $createdAt, memberName: $memberName, memberProfileImageUrl: $memberProfileImageUrl)';
   }
 }
 
@@ -196,6 +210,7 @@ class RelationshipType {
   static const String nephew = 'nephew';
   static const String niece = 'niece';
   static const String cousin = 'cousin';
+  static const String other = 'other';
 
   static const List<String> allRelations = [
     parent,
@@ -209,6 +224,7 @@ class RelationshipType {
     nephew,
     niece,
     cousin,
+    other,
   ];
 
   static String getDisplayName(String relation) {
@@ -235,6 +251,8 @@ class RelationshipType {
         return 'Niece';
       case cousin:
         return 'Cousin';
+      case other:
+        return 'Other';
       default:
         return relation;
     }

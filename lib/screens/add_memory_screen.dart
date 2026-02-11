@@ -193,7 +193,9 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
         final member = _availableFamilyMembers.firstWhere(
           (m) => m.name == name,
         );
-        linkedUserIds.add(member.linkedUserId);
+        if (member.linkedUserId != null) {
+          linkedUserIds.add(member.linkedUserId!);
+        }
       }
 
       final memory = MemoryModel(
@@ -940,7 +942,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                     id: '',
                     name: name,
                     relation: 'Unknown',
-                    linkedUserId: '',
+                    linkedUserId: null,
                     createdAt: DateTime.now(),
                     createdBy: '',
                   ),
@@ -1016,21 +1018,35 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
       final familyMembers = <FamilyMember>[];
 
       for (final relationship in relationships) {
-        // Get user data for the linked user
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(relationship.toUserId)
-            .get();
+        if (relationship.toUserId != null) {
+          // Get user data for the linked user
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(relationship.toUserId)
+              .get();
 
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>;
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            final familyMember = FamilyMember(
+              id: relationship.toUserId!,
+              // Firestore stores the user's full name under the 'Full Name' key
+              name: userData['Full Name'] ?? 'Unknown',
+              relation: relationship.relation,
+              linkedUserId: relationship.toUserId,
+              profileImageUrl: userData['Profile Image URL'],
+              createdAt: relationship.createdAt,
+              createdBy: relationship.fromUserId,
+            );
+            familyMembers.add(familyMember);
+          }
+        } else {
+          // Unlinked member
           final familyMember = FamilyMember(
-            id: relationship.toUserId,
-            // Firestore stores the user's full name under the 'Full Name' key
-            name: userData['Full Name'] ?? 'Unknown',
+            id: relationship.id,
+            name: relationship.memberName ?? 'Unknown',
             relation: relationship.relation,
-            linkedUserId: relationship.toUserId,
-            profileImageUrl: userData['Profile Image URL'],
+            linkedUserId: null,
+            profileImageUrl: relationship.memberProfileImageUrl,
             createdAt: relationship.createdAt,
             createdBy: relationship.fromUserId,
           );
