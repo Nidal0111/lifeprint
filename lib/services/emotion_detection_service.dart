@@ -12,7 +12,6 @@ class EmotionDetectionService {
   // 2. Python server host must be '0.0.0.0'.
   static const String _baseUrl = 'http://192.168.1.38:8000'; 
 
-  /// Detect emotions from an image
   Future<List<String>> detectEmotions(dynamic imageFile) async {
     try {
       final uri = Uri.parse('$_baseUrl/predict-emotion/');
