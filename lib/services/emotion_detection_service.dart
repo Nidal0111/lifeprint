@@ -10,7 +10,7 @@ class EmotionDetectionService {
   // 🚀 LOCAL NETWORK CONFIGURATION
   // 1. Ensure phone and laptop are on the SAME Wi-Fi.
   // 2. Python server host must be '0.0.0.0'.
-  static const String _baseUrl = 'http://192.168.1.38:8000'; 
+  static const String _baseUrl = 'http://172.20.10.3:8000'; 
 
   Future<List<String>> detectEmotions(dynamic imageFile) async {
     try {
