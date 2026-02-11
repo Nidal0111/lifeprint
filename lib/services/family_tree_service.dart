@@ -31,6 +31,7 @@ class FamilyTreeService {
         relation: relation,
         createdAt: DateTime.now(),
         memberName: linkedUserId == null ? name : null,
+        memberProfileImageUrl: linkedUserId == null ? profileImageUrl : null,
       );
 
       await _firestore

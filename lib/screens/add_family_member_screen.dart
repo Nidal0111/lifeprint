@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lifeprint/models/family_member_model.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
+import 'package:lifeprint/services/cloudinary_service.dart';
 
 class AddFamilyMemberScreen extends StatefulWidget {
   const AddFamilyMemberScreen({super.key});
@@ -27,6 +31,10 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
   bool _isDeleting = false;
   List<Map<String, dynamic>> _searchResults = [];
   List<FamilyMember> _existingMembers = [];
+
+  dynamic _selectedImage; // File or Uint8List
+  String? _selectedImageName;
+  final ImagePicker _picker = ImagePicker();
 
   final List<String> _relationTypes = [
     'parent',
@@ -153,6 +161,32 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (pickedFile != null) {
+        if (kIsWeb) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _selectedImage = bytes;
+            _selectedImageName = pickedFile.name;
+          });
+        } else {
+          setState(() {
+            _selectedImage = File(pickedFile.path);
+            _selectedImageName = pickedFile.name;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
   Future<void> _searchUsers(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
@@ -209,10 +243,23 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
     });
 
     try {
+      String? imageUrl;
+      if (_selectedImage != null) {
+        if (kIsWeb) {
+          imageUrl = await CloudinaryService.uploadImage(
+            bytes: _selectedImage,
+            fileName: _selectedImageName,
+          );
+        } else {
+          imageUrl = await CloudinaryService.uploadImage(file: _selectedImage);
+        }
+      }
+
       await _familyTreeService.addFamilyMember(
         name: _nameController.text.trim(),
         relation: _selectedRelation,
         linkedUserId: _selectedUserId,
+        profileImageUrl: imageUrl,
       );
 
       if (mounted) {
@@ -337,6 +384,62 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
               ),
             ),
             const SizedBox(height: 16),
+
+            // Profile Image Picker
+            Center(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 2,
+                        ),
+                        image: _selectedImage != null
+                            ? DecorationImage(
+                                image: kIsWeb
+                                    ? MemoryImage(_selectedImage as Uint8List)
+                                    : FileImage(_selectedImage as File)
+                                          as ImageProvider,
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _selectedImage == null
+                          ? Icon(
+                              Icons.add_a_photo,
+                              size: 40,
+                              color: Colors.white.withOpacity(0.5),
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // Name field
             TextFormField(
