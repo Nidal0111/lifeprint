@@ -173,23 +173,72 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
                             color: Colors.white.withOpacity(0.2),
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Text(
-                                msg.text,
-                                style: GoogleFonts.poppins(color: textColor),
-                              ),
+                            Text(
+                              msg.text,
+                              style: GoogleFonts.poppins(color: textColor),
                             ),
+                            if (msg.imageUrl != null) ...[
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  msg.imageUrl!,
+                                  height: 200,
+                                  width: 250,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                        if (loadingProgress == null)
+                                          return child;
+                                        return Container(
+                                          height: 200,
+                                          width: 250,
+                                          color: Colors.black12,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value:
+                                                  loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.broken_image,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                ),
+                              ),
+                            ],
                             if (offersOpen) ...[
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: () =>
-                                    _tryOpenMemoryFromBotText(msg.text),
-                                child: const Text('Open'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.deepPurple,
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () => _tryOpenMemoryFromBotText(
+                                    msg.text,
+                                    openTitle: msg.openMemoryTitle,
+                                  ),
+                                  child: const Text('Open Memory'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.deepPurple,
+                                    backgroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -432,11 +481,13 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
       // The chatbot may return a JSON wrapper with { text, openMemoryTitle }
       String botText = response;
       String? openTitle;
+      String? imageUrl;
       try {
         final parsed = jsonDecode(response);
         if (parsed is Map<String, dynamic> && parsed['text'] != null) {
           botText = parsed['text'].toString();
           openTitle = parsed['openMemoryTitle']?.toString();
+          imageUrl = parsed['imageUrl']?.toString();
         }
       } catch (_) {
         // not JSON
@@ -445,7 +496,12 @@ class _EnhancedChatbotScreenState extends State<EnhancedChatbotScreen>
       setState(() {
         _isTyping = false;
         _messages.add(
-          _Message(text: botText, isBot: true, openMemoryTitle: openTitle),
+          _Message(
+            text: botText,
+            isBot: true,
+            openMemoryTitle: openTitle,
+            imageUrl: imageUrl,
+          ),
         );
       });
     } catch (e) {
@@ -557,5 +613,11 @@ class _Message {
   final String text;
   final bool isBot;
   final String? openMemoryTitle;
-  _Message({required this.text, required this.isBot, this.openMemoryTitle});
+  final String? imageUrl;
+  _Message({
+    required this.text,
+    required this.isBot,
+    this.openMemoryTitle,
+    this.imageUrl,
+  });
 }

@@ -45,12 +45,12 @@ class ChatbotService {
       'options',
     ])) {
       return "I can help you with:\n\n"
-          "📷 **Memories**: Ask about your photos, videos, audio, or text memories\n"
-          "👨‍👩‍👧‍👦 **Family**: Questions about your family members and relationships\n"
-          "� **Events**: Ask about your events, appointments, and schedule\n"
-          "�📊 **Stats**: Get statistics about your memories and family\n"
-          "🔍 **Search**: Find specific memories or family members\n"
-          "💡 **Suggestions**: Get recommendations for organizing your data\n\n"
+          "📷 Memories: Ask about your photos, videos, audio, or text memories\n"
+          "👨‍👩‍👧‍👦 Family: Questions about your family members and relationships\n"
+          " Events: Ask about your events, appointments, and schedule\n"
+          "📊 Stats: Get statistics about your memories and family\n"
+          "🔍 Search: Find specific memories or family members\n"
+          "💡 Suggestions: Get recommendations for organizing your data\n\n"
           "Try asking: 'Show me my recent memories', 'Who are my family members?', or 'What events do I have today?'";
     }
 
@@ -108,7 +108,13 @@ class ChatbotService {
     }
 
     // Search queries
-    if (_containsAny(message, ['find', 'search', 'look for', 'show me'])) {
+    if (_containsAny(message, [
+      'find',
+      'search',
+      'look for',
+      'show me',
+      'show',
+    ])) {
       return await _handleSearchQuery(message);
     }
 
@@ -121,13 +127,43 @@ class ChatbotService {
     try {
       final match = RegExp(r'"([^\"]+)"').firstMatch(result);
       String? openTitle;
-      if (match != null &&
-          RegExp(r'open', caseSensitive: false).hasMatch(result)) {
-        openTitle = match.group(1);
+      String? imageUrl;
+
+      // Extract title if present
+      if (match != null) {
+        // We only "auto-open" if the text explicitly suggests it (e.g., "Want me to open...")
+        // OR if we just want to show the image associated with the mentioned memory
+        if (RegExp(r'open', caseSensitive: false).hasMatch(result)) {
+          openTitle = match.group(1);
+        }
+
+        // Even if we don't "open" (navigate), we might want to show the image preview
+        // if the quoted text matches a photo memory title
+        final title = match.group(1);
+        if (title != null) {
+          final memories = await _memoryService.getAllMemories(currentUserId!);
+          // Fuzzy match title
+          final mem = memories.cast<MemoryModel?>().firstWhere(
+            (m) => m?.title.toLowerCase() == title.toLowerCase(),
+            orElse: () => null,
+          );
+
+          if (mem != null &&
+              mem.type == MemoryType.photo &&
+              mem.cloudinaryUrl != null) {
+            imageUrl = mem.cloudinaryUrl;
+            // If we found an image, we should probably set openTitle so the UI shows the "Open" button too
+            if (openTitle == null) openTitle = title;
+          }
+        }
       }
 
-      if (openTitle != null && openTitle.isNotEmpty) {
-        return jsonEncode({'text': result, 'openMemoryTitle': openTitle});
+      if ((openTitle != null && openTitle.isNotEmpty) ||
+          (imageUrl != null && imageUrl.isNotEmpty)) {
+        final Map<String, dynamic> responseMap = {'text': result};
+        if (openTitle != null) responseMap['openMemoryTitle'] = openTitle;
+        if (imageUrl != null) responseMap['imageUrl'] = imageUrl;
+        return jsonEncode(responseMap);
       }
     } catch (_) {
       // ignore
@@ -244,7 +280,8 @@ Examples of good responses:
 - For events: "You have 'Mom's Birthday Dinner' scheduled for December 25th"
 - For family: "Your sister Sarah has been part of your family tree since 2020"
 
-Always provide value by connecting their stored information to their question.''';
+Always provide value by connecting their stored information to their question.
+IMPORTANT: Do not use any markdown formatting or asterisks (*) in your response. Keep the text plain.''';
 
       // Read endpoint and key from dart-define environment variables
       String geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
@@ -304,10 +341,11 @@ Always provide value by connecting their stored information to their question.''
                     body['response'] ??
                     body['output'];
                 if (result is String && result.trim().isNotEmpty)
-                  return result.trim();
+                  return result.trim().replaceAll('*', '');
               }
             } catch (_) {
-              if (resp.body.trim().isNotEmpty) return resp.body.trim();
+              if (resp.body.trim().isNotEmpty)
+                return resp.body.trim().replaceAll('*', '');
             }
           }
         } catch (e) {
@@ -356,7 +394,7 @@ Always provide value by connecting their stored information to their question.''
           final memory = recent[i];
           final daysAgo = DateTime.now().difference(memory.createdAt).inDays;
           response +=
-              "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+              "${i + 1}. ${memory.title} (${memory.type.displayName})\n";
           response +=
               "   Created ${daysAgo == 0 ? 'today' : '$daysAgo days ago'}\n";
           if (memory.emotion.isNotEmpty) {
@@ -373,7 +411,24 @@ Always provide value by connecting their stored information to their question.''
         final photos = memories
             .where((m) => m.type == MemoryType.photo)
             .toList();
-        return "You have ${photos.length} photo memories. ${photos.isNotEmpty ? 'Your most recent photo is "${photos.first.title}"' : ''}";
+
+        if (photos.isNotEmpty) {
+          final recent = photos.first;
+          final text =
+              "You have ${photos.length} photo memories. Here is your most recent one: \"${recent.title}\"";
+
+          if (recent.cloudinaryUrl != null &&
+              recent.cloudinaryUrl!.isNotEmpty) {
+            return jsonEncode({
+              'text': text,
+              'imageUrl': recent.cloudinaryUrl,
+              'openMemoryTitle': recent.title,
+            });
+          }
+          return text;
+        }
+
+        return "You have ${photos.length} photo memories.";
       }
 
       if (_containsAny(message, ['video'])) {
@@ -462,7 +517,7 @@ Always provide value by connecting their stored information to their question.''
       // Handle specific relationship queries
       if (_containsAny(message, ['who are my', 'list my', 'show my'])) {
         String response =
-            "👨‍👩‍👧‍👦 **Your Family Members** (${familyMembers.length - 1} connected):\n\n";
+            "👨‍👩‍👧‍👦 Your Family Members (${familyMembers.length - 1} connected):\n\n";
 
         // Get relationships for the user
         final userRelationships = await _familyTreeService.getUserRelationships(
@@ -484,7 +539,7 @@ Always provide value by connecting their stored information to their question.''
                 relationship.relation,
               );
               response +=
-                  "${i + 1}. **${relatedUser.name}** (${relationDisplay})\n";
+                  "${i + 1}. ${relatedUser.name} (${relationDisplay})\n";
             }
           }
         }
@@ -513,7 +568,7 @@ Always provide value by connecting their stored information to their question.''
           }
 
           String response =
-              "👪 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s**:\n\n";
+              "👪 Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s:\n\n";
           for (int i = 0; i < matchingRelations.length; i++) {
             final relationship = matchingRelations[i];
             final relatedUser =
@@ -521,7 +576,7 @@ Always provide value by connecting their stored information to their question.''
                     'unlinked_${relationship.id}'];
 
             if (relatedUser != null) {
-              response += "${i + 1}. **${relatedUser.name}**\n";
+              response += "${i + 1}. ${relatedUser.name}\n";
             }
           }
 
@@ -540,11 +595,11 @@ Always provide value by connecting their stored information to their question.''
             (relationCounts[relationship.relation] ?? 0) + 1;
       }
 
-      String response = "👨‍👩‍👧‍👦 **Your Family Tree Overview**\n\n";
-      response += "📊 **Total Connections**: ${userRelationships.length}\n\n";
+      String response = "👨‍👩‍👧‍👦 Your Family Tree Overview\n\n";
+      response += "📊 Total Connections: ${userRelationships.length}\n\n";
 
       if (relationCounts.isNotEmpty) {
-        response += "🔗 **Relationships**:\n";
+        response += "🔗 Relationships:\n";
         for (final entry in relationCounts.entries) {
           final displayName = RelationshipType.getDisplayName(entry.key);
           response += "   • $displayName: ${entry.value}\n";
@@ -600,19 +655,19 @@ Always provide value by connecting their stored information to their question.''
       final topEmotions = emotionCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
 
-      String response = "📊 **Your Digital Legacy Statistics**\n\n";
-      response += "📈 **Total Memories**: $totalMemories\n";
-      response += "📷 **Photos**: $photoCount\n";
-      response += "🎥 **Videos**: $videoCount\n";
-      response += "🎵 **Audio**: $audioCount\n";
-      response += "📝 **Text**: $textCount\n\n";
+      String response = "📊 Your Digital Legacy Statistics\n\n";
+      response += "📈 Total Memories: $totalMemories\n";
+      response += "📷 Photos: $photoCount\n";
+      response += "🎥 Videos: $videoCount\n";
+      response += "🎵 Audio: $audioCount\n";
+      response += "📝 Text: $textCount\n\n";
 
       if (daysSpan > 0) {
-        response += "⏰ **Time Span**: ${daysSpan} days\n";
+        response += "⏰ Time Span: ${daysSpan} days\n";
       }
 
       if (topEmotions.isNotEmpty) {
-        response += "💭 **Top Emotions**:\n";
+        response += "💭 Top Emotions:\n";
         for (
           int i = 0;
           i < (topEmotions.length > 3 ? 3 : topEmotions.length);
@@ -647,7 +702,7 @@ Always provide value by connecting their stored information to their question.''
 
       // Extract search terms
       final searchTerms = message
-          .replaceAll(RegExp(r'\b(find|search|look for|show me)\b'), '')
+          .replaceAll(RegExp(r'\b(find|search|look for|show me|show)\b'), '')
           .trim()
           .split(' ')
           .where((word) => word.length > 2)
@@ -706,7 +761,7 @@ Always provide value by connecting their stored information to their question.''
 
         if (familyMemories.isNotEmpty) {
           String response =
-              "👨‍👩‍👧‍👦 **Memories About Your Family** (${familyMemories.length} found):\n\n";
+              "👨‍👩‍👧‍👦 Memories About Your Family (${familyMemories.length} found):\n\n";
           for (
             int i = 0;
             i < (familyMemories.length > 5 ? 5 : familyMemories.length);
@@ -714,7 +769,7 @@ Always provide value by connecting their stored information to their question.''
           ) {
             final memory = familyMemories[i];
             response +=
-                "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+                "${i + 1}. ${memory.title} (${memory.type.displayName})\n";
             if (memory.emotion.isNotEmpty) {
               response += "   Emotion: ${memory.emotion}\n";
             }
@@ -743,7 +798,7 @@ Always provide value by connecting their stored information to their question.''
 
         if (eventMemories.isNotEmpty) {
           String response =
-              "📅 **Memories Related to Your Events** (${eventMemories.length} found):\n\n";
+              "📅 Memories Related to Your Events (${eventMemories.length} found):\n\n";
           for (
             int i = 0;
             i < (eventMemories.length > 5 ? 5 : eventMemories.length);
@@ -751,7 +806,7 @@ Always provide value by connecting their stored information to their question.''
           ) {
             final memory = eventMemories[i];
             response +=
-                "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+                "${i + 1}. ${memory.title} (${memory.type.displayName})\n";
             if (memory.emotion.isNotEmpty) {
               response += "   Emotion: ${memory.emotion}\n";
             }
@@ -795,11 +850,10 @@ Always provide value by connecting their stored information to their question.''
         return suggestion;
       }
 
-      String response = "🔍 **Search Results** (${results.length} found):\n\n";
+      String response = "🔍 Search Results (${results.length} found):\n\n";
       for (int i = 0; i < (results.length > 5 ? 5 : results.length); i++) {
         final memory = results[i];
-        response +=
-            "${i + 1}. **${memory.title}** (${memory.type.displayName})\n";
+        response += "${i + 1}. ${memory.title} (${memory.type.displayName})\n";
         if (memory.emotion.isNotEmpty) {
           response += "   Emotion: ${memory.emotion}\n";
         }
@@ -809,6 +863,20 @@ Always provide value by connecting their stored information to their question.''
 
       if (results.length > 5) {
         response += "... and ${results.length - 5} more results.";
+      }
+
+      // If the top result is a photo, return it with the image
+      if (results.isNotEmpty) {
+        final topResult = results.first;
+        if (topResult.type == MemoryType.photo &&
+            topResult.cloudinaryUrl != null &&
+            topResult.cloudinaryUrl!.isNotEmpty) {
+          return jsonEncode({
+            'text': response,
+            'imageUrl': topResult.cloudinaryUrl,
+            'openMemoryTitle': topResult.title,
+          });
+        }
       }
 
       return response;
@@ -834,10 +902,10 @@ Always provide value by connecting their stored information to their question.''
           return "You don't have any events scheduled for today. Enjoy your day!";
         }
 
-        String response = "📅 **Today's Events** (${todaysEvents.length}):\n\n";
+        String response = "📅 Today's Events (${todaysEvents.length}):\n\n";
         for (int i = 0; i < todaysEvents.length; i++) {
           final event = todaysEvents[i];
-          response += "${i + 1}. **${event.title}**\n";
+          response += "${i + 1}. ${event.title}\n";
           response += "   ${event.typeIcon} ${event.type}\n";
           if (event.time != null) {
             response += "   🕐 ${event.formattedTime}\n";
@@ -856,8 +924,7 @@ Always provide value by connecting their stored information to their question.''
           return "You don't have any upcoming events in the next 7 days.";
         }
 
-        String response =
-            "📅 **Upcoming Events** (${upcomingEvents.length}):\n\n";
+        String response = "📅 Upcoming Events (${upcomingEvents.length}):\n\n";
         for (
           int i = 0;
           i < (upcomingEvents.length > 5 ? 5 : upcomingEvents.length);
@@ -866,7 +933,7 @@ Always provide value by connecting their stored information to their question.''
           final event = upcomingEvents[i];
           final daysUntil = event.date.difference(DateTime.now()).inDays;
 
-          response += "${i + 1}. **${event.title}**\n";
+          response += "${i + 1}. ${event.title}\n";
           response += "   📅 ${event.formattedDate}\n";
           if (event.time != null) {
             response += "   🕐 ${event.formattedTime}\n";
@@ -898,14 +965,14 @@ Always provide value by connecting their stored information to their question.''
           }
 
           String response =
-              "📅 **Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s** (${typeEvents.length}):\n\n";
+              "📅 Your ${entry.key[0].toUpperCase() + entry.key.substring(1)}s (${typeEvents.length}):\n\n";
           for (
             int i = 0;
             i < (typeEvents.length > 5 ? 5 : typeEvents.length);
             i++
           ) {
             final event = typeEvents[i];
-            response += "${i + 1}. **${event.title}**\n";
+            response += "${i + 1}. ${event.title}\n";
             response += "   📅 ${event.formattedDate}\n";
             if (event.time != null) {
               response += "   🕐 ${event.formattedTime}\n";
@@ -932,13 +999,13 @@ Always provide value by connecting their stored information to their question.''
         typeCounts[event.type] = (typeCounts[event.type] ?? 0) + 1;
       }
 
-      String response = "📅 **Your Events Overview**\n\n";
-      response += "📊 **Total Events**: $totalEvents\n";
-      response += "📅 **Today**: $todayCount\n";
-      response += "🔜 **Upcoming (7 days)**: $upcomingCount\n\n";
+      String response = "📅 Your Events Overview\n\n";
+      response += "📊 Total Events: $totalEvents\n";
+      response += "📅 Today: $todayCount\n";
+      response += "🔜 Upcoming (7 days): $upcomingCount\n\n";
 
       if (typeCounts.isNotEmpty) {
-        response += "📋 **Event Types**:\n";
+        response += "📋 Event Types:\n";
         for (final entry in typeCounts.entries) {
           final displayType =
               entry.key[0].toUpperCase() + entry.key.substring(1);
@@ -967,7 +1034,7 @@ Always provide value by connecting their stored information to their question.''
       // Add today's events reminder
       if (todaysEvents.isNotEmpty) {
         greeting +=
-            "\n\n📅 **Today you have ${todaysEvents.length} event${todaysEvents.length > 1 ? 's' : ''}**";
+            "\n\n📅 Today you have ${todaysEvents.length} event${todaysEvents.length > 1 ? 's' : ''}";
         if (todaysEvents.length <= 2) {
           for (final event in todaysEvents) {
             greeting +=
@@ -982,7 +1049,7 @@ Always provide value by connecting their stored information to their question.''
       final hasEvents = events.isNotEmpty;
 
       if (hasMemories || hasFamily || hasEvents) {
-        greeting += "\n\n💭 **Quick suggestions based on your data:**";
+        greeting += "\n\n💭 Quick suggestions based on your data:";
 
         if (hasMemories && memories.length > 0) {
           final recentMemory = memories.first;

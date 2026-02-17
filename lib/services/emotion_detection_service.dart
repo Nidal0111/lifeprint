@@ -1,15 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 
 class EmotionDetectionService {
-  // 🚀 LOCAL NETWORK CONFIGURATION
-  // 1. Ensure phone and laptop are on the SAME Wi-Fi.
-  // 2. Python server host must be '0.0.0.0'.
+ 
   static const String _baseUrl =
       'https://facial-expressions-recognition-master-4.onrender.com';
 
@@ -22,10 +19,9 @@ class EmotionDetectionService {
 
       final request = http.MultipartRequest('POST', uri);
 
-      // ✅ REQUIRED HEADERS FOR FLUTTER WEB
-      request.headers.addAll({'Accept': 'application/json'});
+      
+      request.headers.addAll({'Accept':'application/json'});
 
-      // -------- IMAGE HANDLING --------
       if (kIsWeb) {
         if (imageFile is Uint8List) {
           final String fname = fileName ?? 'image.jpg';
