@@ -676,6 +676,8 @@ class _AddMemoryScreenState extends State<AddMemoryScreen>
                 borderSide: const BorderSide(color: Colors.white, width: 2),
               ),
             ),
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'Please enter a title';

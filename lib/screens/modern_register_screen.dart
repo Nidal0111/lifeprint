@@ -16,17 +16,18 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
   bool _isUploadingImage = false;
   bool _agreeToTerms = false;
-  
+
   XFile? _profileImage;
   String? _profileImageUrl;
-  
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -44,21 +45,14 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
 
     _fadeController.forward();
     _slideController.forward();
@@ -94,15 +88,18 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
         try {
           String? uploadedUrl;
           if (kIsWeb) {
-            uploadedUrl = await CloudinaryService.uploadImageWebOptimized(image);
-          } else {
-            uploadedUrl = await CloudinaryService.uploadImageWithTransformations(
+            uploadedUrl = await CloudinaryService.uploadImageWebOptimized(
               image,
-              width: 400,
-              height: 400,
-              crop: 'fill',
-              gravity: 'face',
             );
+          } else {
+            uploadedUrl =
+                await CloudinaryService.uploadImageWithTransformations(
+                  image,
+                  width: 400,
+                  height: 400,
+                  crop: 'fill',
+                  gravity: 'face',
+                );
           }
 
           if (uploadedUrl != null) {
@@ -239,11 +236,7 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-              Color(0xFFf093fb),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
@@ -272,11 +265,12 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                             child: Text(
                               'Create Account',
                               textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.5,
-                              ),
+                              style: Theme.of(context).textTheme.headlineLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
+                                  ),
                             ),
                           ),
                           const SizedBox(width: 48), // Balance the back button
@@ -326,27 +320,30 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                                     },
                                   )
                                 : _profileImage != null
-                                    ? (kIsWeb
-                                        ? Image.network(
-                                            _profileImage!.path,
-                                            fit: BoxFit.cover,
+                                ? (kIsWeb
+                                      ? Image.network(
+                                          _profileImage!.path,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.asset(
+                                          _profileImage!.path,
+                                          fit: BoxFit.cover,
+                                        ))
+                                : Container(
+                                    color: Colors.white.withOpacity(0.2),
+                                    child: _isUploadingImage
+                                        ? const CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
                                           )
-                                        : Image.asset(
-                                            _profileImage!.path,
-                                            fit: BoxFit.cover,
-                                          ))
-                                    : Container(
-                                        color: Colors.white.withOpacity(0.2),
-                                        child: _isUploadingImage
-                                            ? const CircularProgressIndicator(
-                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                              )
-                                            : const Icon(
-                                                Icons.add_a_photo,
-                                                size: 40,
-                                                color: Colors.white,
-                                              ),
-                                      ),
+                                        : const Icon(
+                                            Icons.add_a_photo,
+                                            size: 40,
+                                            color: Colors.white,
+                                          ),
+                                  ),
                           ),
                         ),
                       ),
@@ -424,6 +421,9 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               style: const TextStyle(color: Colors.white),
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).nextFocus(),
                               decoration: InputDecoration(
                                 labelText: 'Email',
                                 labelStyle: TextStyle(
@@ -466,6 +466,9 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                               controller: _passwordController,
                               obscureText: !_isPasswordVisible,
                               style: const TextStyle(color: Colors.white),
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).nextFocus(),
                               decoration: InputDecoration(
                                 labelText: 'Password',
                                 labelStyle: TextStyle(
@@ -521,6 +524,8 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                               controller: _confirmPasswordController,
                               obscureText: !_isConfirmPasswordVisible,
                               style: const TextStyle(color: Colors.white),
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _handleRegister(),
                               decoration: InputDecoration(
                                 labelText: 'Confirm Password',
                                 labelStyle: TextStyle(
@@ -543,7 +548,8 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                                   ),
                                   onPressed: () {
                                     setState(() {
-                                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                                      _isConfirmPasswordVisible =
+                                          !_isConfirmPasswordVisible;
                                     });
                                   },
                                 ),
@@ -622,15 +628,21 @@ class _ModernRegisterScreenState extends State<ModernRegisterScreen>
                                             height: 24,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
                                             ),
                                           )
                                         : Text(
                                             'Create Account',
-                                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleLarge
+                                                ?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
                                   ),
                                 ),

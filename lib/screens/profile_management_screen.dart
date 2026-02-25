@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lifeprint/cloudinary_service.dart';
+import 'package:lifeprint/widgets/full_screen_image_viewer.dart';
 
 class ProfileManagementScreen extends StatefulWidget {
   const ProfileManagementScreen({super.key});
@@ -482,15 +482,36 @@ Thank you for using LifePrint!''',
                 profileUrl = data?['Profile Image URL'] as String?;
               }
               return GestureDetector(
-                onTap: _selectAndUploadImage,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage: profileUrl != null
-                      ? NetworkImage(profileUrl)
-                      : null,
-                  child: profileUrl == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.white)
-                      : null,
+                onTap: () {
+                  if (profileUrl != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FullScreenImageViewer(
+                          imageUrl: profileUrl,
+                          tag: 'profile_management_${user?.uid}',
+                        ),
+                      ),
+                    );
+                  } else {
+                    _selectAndUploadImage();
+                  }
+                },
+                onLongPress: _selectAndUploadImage,
+                child: Hero(
+                  tag: 'profile_management_${user?.uid}',
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: profileUrl != null
+                        ? NetworkImage(profileUrl)
+                        : null,
+                    child: profileUrl == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 50,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
                 ),
               );
             },

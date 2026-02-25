@@ -99,16 +99,20 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
     final isSmallScreen = screenWidth < 600;
     final isMediumScreen = screenWidth >= 600 && screenWidth < 1200;
     final isLargeScreen = screenWidth >= 1200;
-    
+
     // Responsive padding
-    final horizontalPadding = isSmallScreen ? 16.0 : (isMediumScreen ? 32.0 : 48.0);
+    final horizontalPadding = isSmallScreen
+        ? 16.0
+        : (isMediumScreen ? 32.0 : 48.0);
     final formPadding = isSmallScreen ? 20.0 : (isMediumScreen ? 28.0 : 32.0);
     final topSpacing = isSmallScreen ? 20.0 : (isMediumScreen ? 30.0 : 40.0);
     final formSpacing = isSmallScreen ? 30.0 : (isMediumScreen ? 40.0 : 50.0);
-    
+
     // Responsive container width
-    final maxFormWidth = isLargeScreen ? 500.0 : (isMediumScreen ? 450.0 : double.infinity);
-    
+    final maxFormWidth = isLargeScreen
+        ? 500.0
+        : (isMediumScreen ? 450.0 : double.infinity);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -123,7 +127,10 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
           child: Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: 16,
+                ),
                 child: Column(
                   children: [
                     SizedBox(height: topSpacing),
@@ -141,7 +148,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.5,
-                                    fontSize: isSmallScreen ? 28 : (isMediumScreen ? 32 : 36),
+                                    fontSize: isSmallScreen
+                                        ? 28
+                                        : (isMediumScreen ? 32 : 36),
                                   ),
                               textAlign: TextAlign.center,
                             ),
@@ -170,7 +179,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                           padding: EdgeInsets.all(formPadding),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
+                            borderRadius: BorderRadius.circular(
+                              isSmallScreen ? 20 : 24,
+                            ),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.2),
                               width: 1,
@@ -217,25 +228,34 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                     vertical: isSmallScreen ? 12 : 16,
                                   ),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: BorderSide(
                                       color: Colors.white.withOpacity(0.3),
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: BorderSide(
                                       color: Colors.white.withOpacity(0.3),
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: const BorderSide(
                                       color: Colors.white,
                                       width: 2,
                                     ),
                                   ),
                                 ),
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) =>
+                                    FocusScope.of(context).nextFocus(),
                               ),
                               SizedBox(height: isSmallScreen ? 16 : 20),
                               // Password Field
@@ -272,7 +292,8 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
+                                        _isPasswordVisible =
+                                            !_isPasswordVisible;
                                       });
                                     },
                                   ),
@@ -283,25 +304,33 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                     vertical: isSmallScreen ? 12 : 16,
                                   ),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: BorderSide(
                                       color: Colors.white.withOpacity(0.3),
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: BorderSide(
                                       color: Colors.white.withOpacity(0.3),
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     borderSide: const BorderSide(
                                       color: Colors.white,
                                       width: 2,
                                     ),
                                   ),
                                 ),
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _handleLogin(),
                               ),
                               SizedBox(height: isSmallScreen ? 12 : 16),
                               // Forgot Password
@@ -360,7 +389,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                 height: isSmallScreen ? 48 : 56,
                                 decoration: BoxDecoration(
                                   color: Colors.black,
-                                  borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                  borderRadius: BorderRadius.circular(
+                                    isSmallScreen ? 12 : 16,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.3),
@@ -372,20 +403,23 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     onTap: _isLoading ? null : _handleLogin,
                                     child: Center(
                                       child: _isLoading
                                           ? SizedBox(
                                               width: isSmallScreen ? 20 : 24,
                                               height: isSmallScreen ? 20 : 24,
-                                              child: const CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<Color>(
-                                                      Colors.white,
-                                                    ),
-                                              ),
+                                              child:
+                                                  const CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
                                             )
                                           : Text(
                                               'Sign In',
@@ -395,7 +429,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                                   ?.copyWith(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.w600,
-                                                    fontSize: isSmallScreen ? 16 : 18,
+                                                    fontSize: isSmallScreen
+                                                        ? 16
+                                                        : 18,
                                                   ),
                                             ),
                                     ),
@@ -439,7 +475,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                 height: isSmallScreen ? 48 : 56,
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                  borderRadius: BorderRadius.circular(
+                                    isSmallScreen ? 12 : 16,
+                                  ),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.3),
                                     width: 1,
@@ -448,7 +486,9 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                                    borderRadius: BorderRadius.circular(
+                                      isSmallScreen ? 12 : 16,
+                                    ),
                                     onTap: () {
                                       Navigator.of(context).push(
                                         PageRouteBuilder(
@@ -468,12 +508,16 @@ class _ModernLoginScreenState extends State<ModernLoginScreen>
                                                 return SlideTransition(
                                                   position:
                                                       Tween<Offset>(
-                                                        begin: const Offset(1, 0),
+                                                        begin: const Offset(
+                                                          1,
+                                                          0,
+                                                        ),
                                                         end: Offset.zero,
                                                       ).animate(
                                                         CurvedAnimation(
                                                           parent: animation,
-                                                          curve: Curves.easeInOut,
+                                                          curve:
+                                                              Curves.easeInOut,
                                                         ),
                                                       ),
                                                   child: child,

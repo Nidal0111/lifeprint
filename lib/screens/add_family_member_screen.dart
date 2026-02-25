@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lifeprint/models/family_member_model.dart';
 import 'package:lifeprint/services/family_tree_service.dart';
 import 'package:lifeprint/services/cloudinary_service.dart';
+import 'package:lifeprint/widgets/full_screen_image_viewer.dart';
 
 class AddFamilyMemberScreen extends StatefulWidget {
   const AddFamilyMemberScreen({super.key});
@@ -469,6 +470,8 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
                   borderSide: const BorderSide(color: Colors.white, width: 2),
                 ),
               ),
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter a name';
@@ -548,6 +551,8 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
                       )
                     : Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
               ),
+              textInputAction: TextInputAction.search,
+              onFieldSubmitted: (value) => _searchUsers(value),
               onChanged: _searchUsers,
             ),
             const SizedBox(height: 16),
@@ -568,13 +573,30 @@ class _AddFamilyMemberScreenState extends State<AddFamilyMemberScreen>
                     final isSelected = _selectedUserId == user['id'];
 
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: user['profileImageUrl'] != null
-                            ? NetworkImage(user['profileImageUrl'])
-                            : null,
-                        child: user['profileImageUrl'] == null
-                            ? Text(user['name'][0].toUpperCase())
-                            : null,
+                      leading: GestureDetector(
+                        onTap: () {
+                          if (user['profileImageUrl'] != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => FullScreenImageViewer(
+                                  imageUrl: user['profileImageUrl'],
+                                  tag: 'avatar_search_${user['id']}',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Hero(
+                          tag: 'avatar_search_${user['id']}',
+                          child: CircleAvatar(
+                            backgroundImage: user['profileImageUrl'] != null
+                                ? NetworkImage(user['profileImageUrl'])
+                                : null,
+                            child: user['profileImageUrl'] == null
+                                ? Text(user['name'][0].toUpperCase())
+                                : null,
+                          ),
+                        ),
                       ),
                       title: Text(user['name']),
                       subtitle: Text(user['email']),

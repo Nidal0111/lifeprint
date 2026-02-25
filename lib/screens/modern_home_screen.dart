@@ -13,6 +13,7 @@ import 'package:lifeprint/models/memory_model.dart';
 import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/services/event_service.dart';
 import 'package:lifeprint/screens/enhanced_chatbot_screen.dart';
+import 'package:lifeprint/widgets/full_screen_image_viewer.dart';
 
 class ModernHomeScreen extends StatefulWidget {
   final String? selectedUserId;
@@ -289,17 +290,32 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                             profileUrl = data?['Profile Image URL'] as String?;
                           }
                           if (profileUrl != null && profileUrl.isNotEmpty) {
-                            return Image.network(
-                              profileUrl,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) =>
-                                  const Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 20,
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => FullScreenImageViewer(
+                                      imageUrl: profileUrl,
+                                      tag: 'profile_home_${user?.uid}',
+                                    ),
                                   ),
+                                );
+                              },
+                              child: Hero(
+                                tag: 'profile_home_${user?.uid}',
+                                child: Image.network(
+                                  profileUrl,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) =>
+                                      const Icon(
+                                        Icons.person,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                ),
+                              ),
                             );
                           }
                           return const Icon(

@@ -9,6 +9,7 @@ import 'package:lifeprint/screens/add_family_member_screen.dart';
 import 'package:lifeprint/screens/albums_screen.dart';
 import 'package:lifeprint/screens/notes_calendar_screen.dart';
 import 'package:graphview/graphview.dart';
+import 'package:lifeprint/widgets/full_screen_image_viewer.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -215,22 +216,37 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                     ),
                   ],
                 ),
-                child: CircleAvatar(
-                  radius: avatarRadius,
-                  backgroundColor: Colors.white,
-                  backgroundImage: member.profileImageUrl != null
-                      ? NetworkImage(member.profileImageUrl!)
-                      : null,
-                  child: member.profileImageUrl == null
-                      ? Text(
-                          member.name[0].toUpperCase(),
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: isSmallScreen ? 20 : 24,
-                            color: const Color(0xFF764ba2),
-                          ),
-                        )
-                      : null,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FullScreenImageViewer(
+                          imageUrl: member.profileImageUrl,
+                          tag: 'avatar_single_${member.id}',
+                        ),
+                      ),
+                    );
+                  },
+                  child: Hero(
+                    tag: 'avatar_single_${member.id}',
+                    child: CircleAvatar(
+                      radius: avatarRadius,
+                      backgroundColor: Colors.white,
+                      backgroundImage: member.profileImageUrl != null
+                          ? NetworkImage(member.profileImageUrl!)
+                          : null,
+                      child: member.profileImageUrl == null
+                          ? Text(
+                              member.name[0].toUpperCase(),
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 20 : 24,
+                                color: const Color(0xFF764ba2),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -311,22 +327,37 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                             ),
                           ],
                         ),
-                        child: CircleAvatar(
-                          radius: avatarRadius,
-                          backgroundColor: Colors.white,
-                          backgroundImage: member.profileImageUrl != null
-                              ? NetworkImage(member.profileImageUrl!)
-                              : null,
-                          child: member.profileImageUrl == null
-                              ? Text(
-                                  member.name[0].toUpperCase(),
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: isSmallScreen ? 14 : 16,
-                                    color: const Color(0xFF764ba2),
-                                  ),
-                                )
-                              : null,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => FullScreenImageViewer(
+                                  imageUrl: member.profileImageUrl,
+                                  tag: 'avatar_grid_${member.id}',
+                                ),
+                              ),
+                            );
+                          },
+                          child: Hero(
+                            tag: 'avatar_grid_${member.id}',
+                            child: CircleAvatar(
+                              radius: avatarRadius,
+                              backgroundColor: Colors.white,
+                              backgroundImage: member.profileImageUrl != null
+                                  ? NetworkImage(member.profileImageUrl!)
+                                  : null,
+                              child: member.profileImageUrl == null
+                                  ? Text(
+                                      member.name[0].toUpperCase(),
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isSmallScreen ? 14 : 16,
+                                        color: const Color(0xFF764ba2),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -371,12 +402,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ? constraints.maxHeight
             : 400;
 
-        final nodeSeparation = isSmallScreen ? 60.0 : 80.0;
-        final levelSeparation = isSmallScreen ? 80.0 : 100.0;
-        final boundaryMargin = isSmallScreen ? 20.0 : 30.0;
-        final avatarRadius = isSmallScreen ? 28.0 : 34.0;
-        final nameFontSize = isSmallScreen ? 11.0 : 13.0;
-        final relationFontSize = isSmallScreen ? 10.0 : 11.0;
+        final nodeSeparation = isSmallScreen ? 100.0 : 120.0;
+        final levelSeparation = isSmallScreen ? 120.0 : 150.0;
+        final boundaryMargin = isSmallScreen ? 20.0 : 40.0;
+        final avatarRadius = isSmallScreen ? 32.0 : 38.0;
+        final nameFontSize = isSmallScreen ? 12.0 : 14.0;
+        final relationFontSize = isSmallScreen ? 11.0 : 12.0;
 
         return SizedBox(
           width: width,
@@ -406,62 +437,97 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
                 return GestureDetector(
                   onTap: () => _openUserMemories(member.linkedUserId),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: CircleAvatar(
-                          radius: avatarRadius,
-                          backgroundColor: Colors.white,
-                          backgroundImage: member.profileImageUrl != null
-                              ? NetworkImage(member.profileImageUrl!)
-                              : null,
-                          child: member.profileImageUrl == null
-                              ? Text(
-                                  member.name[0].toUpperCase(),
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: isSmallScreen ? 18 : 22,
-                                    color: const Color(0xFF764ba2),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => FullScreenImageViewer(
+                                    imageUrl: member.profileImageUrl,
+                                    tag: 'avatar_graph_${member.id}',
                                   ),
-                                )
-                              : null,
+                                ),
+                              );
+                            },
+                            child: Hero(
+                              tag: 'avatar_graph_${member.id}',
+                              child: CircleAvatar(
+                                radius: avatarRadius,
+                                backgroundColor: Colors.white,
+                                backgroundImage: member.profileImageUrl != null
+                                    ? NetworkImage(member.profileImageUrl!)
+                                    : null,
+                                child: member.profileImageUrl == null
+                                    ? Text(
+                                        member.name[0].toUpperCase(),
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isSmallScreen ? 20 : 24,
+                                          color: const Color(0xFF764ba2),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        member.name,
-                        style: GoogleFonts.poppins(
-                          fontSize: nameFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        const SizedBox(height: 10),
+                        Text(
+                          member.name,
+                          style: GoogleFonts.poppins(
+                            fontSize: nameFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.5),
+                                offset: const Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        RelationshipType.getDisplayName(member.relation),
-                        style: GoogleFonts.poppins(
-                          fontSize: relationFontSize,
-                          color: Colors.white.withOpacity(0.9),
-                          fontWeight: FontWeight.w500,
+                        Text(
+                          RelationshipType.getDisplayName(member.relation),
+                          style: GoogleFonts.poppins(
+                            fontSize: relationFontSize,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w600,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.5),
+                                offset: const Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -649,6 +715,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         ),
         child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Custom App Bar
               Padding(
@@ -698,11 +765,13 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildFamilyTreeInfo(),
                           SizedBox(height: isSmallScreen ? 8 : 16),
                           Expanded(
                             child: Container(
+                              width: double.infinity,
                               margin: EdgeInsets.all(containerMargin),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.06),
