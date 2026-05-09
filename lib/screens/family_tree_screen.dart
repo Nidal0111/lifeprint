@@ -80,12 +80,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   void _buildGraph() {
-    _graph = Graph()..isTree = false;
+    _graph = Graph()..isTree = true;
 
     // Add nodes for all family members
     for (final member in _familyMembers.values) {
       _graph!.addNode(Node.Id(member.id));
     }
+
+    final Set<String> nodesWithIncomingEdge = {};
 
     // Add edges for relationships
     for (final relationship in _relationships) {
@@ -93,7 +95,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
       if (_familyMembers.containsKey(relationship.fromUserId) &&
           _familyMembers.containsKey(targetId)) {
-        _graph!.addEdge(Node.Id(relationship.fromUserId), Node.Id(targetId));
+        
+        // Prevent multiple incoming edges to ensure it's a valid tree for BuchheimWalker
+        if (!nodesWithIncomingEdge.contains(targetId)) {
+          _graph!.addEdge(Node.Id(relationship.fromUserId), Node.Id(targetId));
+          nodesWithIncomingEdge.add(targetId);
+        }
       }
     }
   }
@@ -314,12 +321,15 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 ..color = Colors.white.withOpacity(0.8)
                 ..strokeWidth = 3.0
                 ..style = PaintingStyle.stroke,
-              algorithm: SugiyamaAlgorithm(
-                SugiyamaConfiguration()
-                  ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM
-                  ..nodeSeparation = nodeSeparation.toInt()
-                  ..levelSeparation = levelSeparation.toInt(),
-              )..renderer = ArrowEdgeRenderer(),
+              algorithm: BuchheimWalkerAlgorithm(
+                BuchheimWalkerConfiguration()
+                  ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM
+                  ..siblingSeparation = nodeSeparation.toInt()
+                  ..levelSeparation = levelSeparation.toInt()
+                  ..subtreeSeparation = nodeSeparation.toInt() + 20,
+                TreeEdgeRenderer(BuchheimWalkerConfiguration()
+                  ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM),
+              ),
               builder: (node) {
                 final String keyStr =
                     node.key?.value?.toString() ?? node.key?.toString() ?? '';
