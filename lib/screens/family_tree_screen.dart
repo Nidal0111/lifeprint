@@ -289,8 +289,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ? constraints.maxHeight
             : 400;
 
-        final nodeSeparation = isSmallScreen ? 100.0 : 120.0;
-        final levelSeparation = isSmallScreen ? 120.0 : 150.0;
+        final nodeSeparation = isSmallScreen ? 40.0 : 80.0;
+        final levelSeparation = isSmallScreen ? 80.0 : 120.0;
         final boundaryMargin = isSmallScreen ? 20.0 : 40.0;
         final avatarRadius = isSmallScreen ? 32.0 : 38.0;
         final nameFontSize = isSmallScreen ? 12.0 : 14.0;
@@ -300,11 +300,15 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           width: width,
           height: height,
           child: InteractiveViewer(
-            constrained: false,
-            boundaryMargin: EdgeInsets.all(boundaryMargin),
-            minScale: 0.5,
-            maxScale: 3.0,
-            child: GraphView(
+            constrained: true,
+            minScale: 1.0,
+            maxScale: 5.0,
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topCenter,
+                child: GraphView(
               graph: _graph!,
               paint: Paint()
                 ..color = Colors.white.withOpacity(0.8)
@@ -419,7 +423,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               },
             ),
           ),
-        );
+        ),
+      ),
+    );
       },
     );
   }
