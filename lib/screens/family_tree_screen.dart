@@ -428,7 +428,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM
                   ..nodeSeparation = nodeSeparation.toInt()
                   ..levelSeparation = levelSeparation.toInt(),
-              ),
+              )..renderer = ArrowEdgeRenderer(),
               builder: (node) {
                 final String keyStr =
                     node.key?.value?.toString() ?? node.key?.toString() ?? '';
