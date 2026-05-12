@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lifeprint/app_secrets.dart';
 import 'package:lifeprint/models/memory_model.dart';
-import 'package:lifeprint/models/event_model.dart';
 import 'package:lifeprint/models/family_member_model.dart';
 import 'package:lifeprint/services/memory_service.dart';
 import 'package:lifeprint/services/event_service.dart';
@@ -172,7 +172,108 @@ class ChatbotService {
     return result;
   }
 
-  /// Serialize memories, family data, and events to call the Gemini model to get a personalized reply.
+  // ─────────────────────────────────────────────────────────────────
+  // Groq API helpers
+  // ─────────────────────────────────────────────────────────────────
+  static const String _groqApiKey = AppSecrets.groqApiKey;
+  static const String _groqBaseUrl = 'https://api.groq.com/openai/v1';
+  static const String _groqModel = 'llama-3.3-70b-versatile';
+  static const String _groqVisionModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+  /// Call Groq chat completions endpoint with plain text
+  Future<String> _callGroq(String systemPrompt, String userMessage) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('$_groqBaseUrl/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_groqApiKey',
+            },
+            body: jsonEncode({
+              'model': _groqModel,
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': userMessage},
+              ],
+              'max_tokens': 1024,
+              'temperature': 0.7,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        final choices = body['choices'] as List?;
+        if (choices != null && choices.isNotEmpty) {
+          final content = choices[0]['message']?['content'];
+          if (content is String && content.trim().isNotEmpty) {
+            return content.trim().replaceAll('*', '').replaceAll('#', '');
+          }
+        }
+      } else {
+        debugPrint('Groq API error ${resp.statusCode}: ${resp.body}');
+      }
+    } catch (e) {
+      debugPrint('Groq call failed: $e');
+    }
+    return '';
+  }
+
+  /// Call Groq vision endpoint with a base64-encoded image
+  Future<String> analyzeImageEmotions(String base64Image) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('$_groqBaseUrl/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_groqApiKey',
+            },
+            body: jsonEncode({
+              'model': _groqVisionModel,
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': [
+                    {
+                      'type': 'image_url',
+                      'image_url': {
+                        'url': 'data:image/jpeg;base64,$base64Image',
+                      },
+                    },
+                    {
+                      'type': 'text',
+                      'text':
+                          'Analyze the emotions visible in this image. Describe what emotions the people (or scene) express. Be concise and specific. If no face is detected, describe the general mood of the image.',
+                    },
+                  ],
+                },
+              ],
+              'max_tokens': 512,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        final choices = body['choices'] as List?;
+        if (choices != null && choices.isNotEmpty) {
+          final content = choices[0]['message']?['content'];
+          if (content is String && content.trim().isNotEmpty) {
+            return content.trim();
+          }
+        }
+      } else {
+        debugPrint('Groq Vision error ${resp.statusCode}: ${resp.body}');
+      }
+    } catch (e) {
+      debugPrint('Groq vision call failed: $e');
+    }
+    return 'Could not analyze image emotions.';
+  }
+
+  /// Serialize memories, family data, and events to call Groq and get a personalized reply.
   Future<String> _queryWithGemini(String userQuery) async {
     try {
       final memories = await _memoryService.getAllMemories(currentUserId!);
@@ -185,36 +286,32 @@ class ChatbotService {
       final events = await _eventService.getUserEvents();
 
       // Limit number of items sent to the model
-      final memoryLimit = 15;
-      final eventLimit = 10;
-      final familyLimit = 10;
+      const memoryLimit = 15;
+      const eventLimit = 10;
+      const familyLimit = 10;
 
       final recentMemories = memories.take(memoryLimit).toList();
       final recentEvents = events.take(eventLimit).toList();
 
       // Serialize memories
       final memoryLines = recentMemories
-          .map((m) {
-            return jsonEncode({
-              'type': 'memory',
-              'id': m.id,
-              'title': m.title,
-              'memoryType': m.type.name,
-              'emotions': m.emotion,
-              'createdAt': m.createdAt.toIso8601String(),
-              'transcript': m.transcript?.substring(
-                0,
-                200,
-              ), // Limit transcript length
-            });
-          })
+          .map((m) => jsonEncode({
+                'type': 'memory',
+                'id': m.id,
+                'title': m.title,
+                'memoryType': m.type.name,
+                'emotions': m.emotion,
+                'createdAt': m.createdAt.toIso8601String(),
+                'transcript': m.transcript?.substring(0, 200),
+              }))
           .join('\n');
 
       // Serialize family relationships
       final familyLines = relationships
           .take(familyLimit)
           .map((r) {
-            final relatedUser = familyMembers[r.toUserId ?? 'unlinked_${r.id}'];
+            final relatedUser =
+                familyMembers[r.toUserId ?? 'unlinked_${r.id}'];
             return jsonEncode({
               'type': 'family',
               'relation': r.relation,
@@ -226,21 +323,19 @@ class ChatbotService {
 
       // Serialize events
       final eventLines = recentEvents
-          .map((e) {
-            return jsonEncode({
-              'type': 'event',
-              'id': e.id,
-              'title': e.title,
-              'eventType': e.type,
-              'date': e.date.toIso8601String(),
-              'time': e.time?.toIso8601String(),
-              'description': e.description,
-            });
-          })
+          .map((e) => jsonEncode({
+                'type': 'event',
+                'id': e.id,
+                'title': e.title,
+                'eventType': e.type,
+                'date': e.date.toIso8601String(),
+                'time': e.time?.toIso8601String(),
+                'description': e.description,
+              }))
           .join('\n');
 
       // Combine all data with clear sections
-      final allData = [
+      var dataBlock = [
         '=== MEMORIES ===',
         memoryLines,
         '=== FAMILY RELATIONSHIPS ===',
@@ -250,108 +345,26 @@ class ChatbotService {
       ].join('\n');
 
       // Truncate to conservative prompt size
-      final maxPromptLength = 15000;
-      var dataBlock = allData;
-      if (dataBlock.length > maxPromptLength) {
-        dataBlock = dataBlock.substring(0, maxPromptLength - 100) + '\n...';
+      if (dataBlock.length > 12000) {
+        dataBlock = dataBlock.substring(0, 11900) + '\n...';
       }
 
-      final prompt =
-          '''You are a comprehensive life assistant with access to the user's complete digital legacy.
+      const systemPrompt =
+          'You are a comprehensive life assistant with access to the user\'s complete digital legacy. '
+          'Search through ALL their data - memories, family relationships, and events - to provide a comprehensive, personalized answer. '
+          'Reference specific memories, family members, or events by name when relevant. '
+          'Be conversational and personal, like a knowledgeable friend. '
+          'If suggesting to open a memory, use the exact title in quotes. '
+          'Mention emotions, relationships, and important dates naturally. '
+          'IMPORTANT: Do NOT use markdown formatting, asterisks, or hash symbols. Keep the text plain.';
 
-Here is the user's stored data (organized by type):
+      final userMessage =
+          'Here is the user\'s stored data:\n\n$dataBlock\n\nUser asked: "${_escape(userQuery)}"';
 
-$dataBlock
+      final groqResponse = await _callGroq(systemPrompt, userMessage);
 
-User asked: "${_escape(userQuery)}"
-
-Search through ALL their data - memories, family relationships, and events - to provide a comprehensive, personalized answer.
-
-Key guidelines:
-- Reference specific memories, family members, or events by name when relevant
-- Connect information across different data types (e.g., "You have a memory about your family reunion and an upcoming birthday event")
-- Be conversational and personal, like a knowledgeable friend
-- If suggesting to open a memory, use exact titles in quotes for easy parsing
-- Mention emotions, relationships, and important dates naturally
-- If no direct match, suggest related information from their data
-
-Examples of good responses:
-- For memories: "I remember your 'Summer Vacation 2023' - it was so joyful. Want me to open that memory?"
-- For events: "You have 'Mom's Birthday Dinner' scheduled for December 25th"
-- For family: "Your sister Sarah has been part of your family tree since 2020"
-
-Always provide value by connecting their stored information to their question.
-IMPORTANT: Do not use any markdown formatting or asterisks (*) in your response. Keep the text plain.''';
-
-      // Read endpoint and key from dart-define environment variables
-      String geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
-      final geminiKey = const String.fromEnvironment('GEMINI_API_KEY');
-
-      // ✅ FALLBACK: Use Google AI Studio URL if not provided (matches GEMINI_API_SETUP.md)
-      if (geminiUrl.isEmpty) {
-        geminiUrl =
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
-      }
-
-      if (geminiUrl.isNotEmpty) {
-        try {
-          final resp = await http
-              .post(
-                Uri.parse(
-                  geminiUrl.contains('?')
-                      ? '$geminiUrl&key=$geminiKey'
-                      : '$geminiUrl?key=$geminiKey',
-                ),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode({
-                  'contents': [
-                    {
-                      'parts': [
-                        {'text': prompt},
-                      ],
-                    },
-                  ],
-                }),
-              )
-              .timeout(const Duration(seconds: 15));
-
-          if (resp.statusCode == 200) {
-            // Try parse JSON
-            try {
-              final body = jsonDecode(resp.body);
-              if (body is Map<String, dynamic>) {
-                // Handle Google AI Studio response format
-                if (body.containsKey('candidates')) {
-                  final candidates = body['candidates'] as List;
-                  if (candidates.isNotEmpty) {
-                    final content = candidates[0]['content'];
-                    if (content != null && content['parts'] != null) {
-                      final parts = content['parts'] as List;
-                      if (parts.isNotEmpty) {
-                        return parts[0]['text'].toString().trim();
-                      }
-                    }
-                  }
-                }
-
-                // Keep existing flexible parsing
-                final result =
-                    body['result'] ??
-                    body['text'] ??
-                    body['response'] ??
-                    body['output'];
-                if (result is String && result.trim().isNotEmpty)
-                  return result.trim().replaceAll('*', '');
-              }
-            } catch (_) {
-              if (resp.body.trim().isNotEmpty)
-                return resp.body.trim().replaceAll('*', '');
-            }
-          }
-        } catch (e) {
-          debugPrint('Error calling Gemini endpoint: $e');
-          // fall through to local fallback
-        }
+      if (groqResponse.isNotEmpty) {
+        return groqResponse;
       }
 
       // Local fallback: simple heuristic search
@@ -364,13 +377,12 @@ IMPORTANT: Do not use any markdown formatting or asterisks (*) in your response.
       if (found.isNotEmpty) {
         final mem = found.first;
         final emotion = mem.emotion.isNotEmpty ? mem.emotion : 'nostalgic';
-
-        return 'I remember "${mem.title}" — it feels ${emotion.toLowerCase()}. Want me to open that memory?';
+        return 'I found "${mem.title}" — it feels ${emotion.toLowerCase()}. Want me to open that memory?';
       }
 
-      return 'I didn’t find anything like that — should I search differently?';
+      return 'I didn\'t find anything matching that — could you rephrase your question?';
     } catch (e) {
-      debugPrint('Gemini query failed: $e');
+      debugPrint('Query failed: $e');
       return 'Sorry, I had trouble searching your memories. Try rephrasing your question.';
     }
   }
@@ -931,7 +943,6 @@ IMPORTANT: Do not use any markdown formatting or asterisks (*) in your response.
           i++
         ) {
           final event = upcomingEvents[i];
-          final daysUntil = event.date.difference(DateTime.now()).inDays;
 
           response += "${i + 1}. ${event.title}\n";
           response += "   📅 ${event.formattedDate}\n";
@@ -1081,56 +1092,16 @@ IMPORTANT: Do not use any markdown formatting or asterisks (*) in your response.
     }
   }
 
-  /// Translate the given text to English using Gemini
+  /// Translate the given text to English using Groq
   Future<String> translateToEnglish(String text) async {
     try {
-      String geminiUrl = const String.fromEnvironment('GEMINI_API_URL');
-      final geminiKey = const String.fromEnvironment('GEMINI_API_KEY');
+      const systemPrompt =
+          'You are a translation assistant. Translate user text to English. '
+          'If it is already in English, return it exactly as-is. '
+          'Return ONLY the translated text, no other comments or explanations.';
 
-      if (geminiUrl.isEmpty) {
-        geminiUrl =
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
-      }
-
-      final prompt =
-          "Translate the following text to English. If it is already in English, return it as is. Return ONLY the translated text, no other comments or explanations:\n\n$text";
-
-      final resp = await http
-          .post(
-            Uri.parse(
-              geminiUrl.contains('?')
-                  ? '$geminiUrl&key=$geminiKey'
-                  : '$geminiUrl?key=$geminiKey',
-            ),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt},
-                  ],
-                },
-              ],
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (resp.statusCode == 200) {
-        final body = jsonDecode(resp.body);
-        if (body is Map<String, dynamic> && body.containsKey('candidates')) {
-          final candidates = body['candidates'] as List;
-          if (candidates.isNotEmpty) {
-            final content = candidates[0]['content'];
-            if (content != null && content['parts'] != null) {
-              final parts = content['parts'] as List;
-              if (parts.isNotEmpty) {
-                return parts[0]['text'].toString().trim();
-              }
-            }
-          }
-        }
-      }
-      return text;
+      final translated = await _callGroq(systemPrompt, text);
+      return translated.isNotEmpty ? translated : text;
     } catch (e) {
       debugPrint('Translation failed: $e');
       return text;
